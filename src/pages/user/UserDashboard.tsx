@@ -166,6 +166,7 @@ export default function UserDashboard() {
           </CardContent>
         </Card>
       </div>
+      <ChatbotWidget />
     </div>
   );
 }
