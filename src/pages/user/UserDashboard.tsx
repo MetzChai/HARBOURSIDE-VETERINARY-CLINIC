@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PawPrint, Calendar, Syringe, Printer, Bell } from "lucide-react";
 import { mockPets, mockAppointments, mockVaccinations, getOwnerById, getCheckupsByPet, getVaccinationsByPet, getTreatmentsByPet } from "@/lib/mock-data";
+import ChatbotWidget from "@/components/ChatbotWidget";
 
 // Simulating logged-in user is owner "o1" (Maria Santos)
 const USER_OWNER_ID = "o1";
