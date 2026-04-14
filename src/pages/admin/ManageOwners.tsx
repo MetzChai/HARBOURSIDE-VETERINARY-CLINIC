@@ -24,6 +24,8 @@ export default function ManageOwners() {
 
   const handlePrint = (owner: Owner) => {
     const pets = getPetsByOwner(owner.id);
+    const ownerImg = getOwnerImage(owner);
+    const initials = owner.name.split(" ").map(n => n[0]).join("");
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`
@@ -31,11 +33,19 @@ export default function ManageOwners() {
       <style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a}
       h1{color:#0d9488}table{width:100%;border-collapse:collapse;margin-top:16px}
       th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f0fdfa;color:#0d9488}
-      .header{border-bottom:2px solid #0d9488;padding-bottom:12px;margin-bottom:20px}</style></head>
+      .header{border-bottom:2px solid #0d9488;padding-bottom:12px;margin-bottom:20px}
+      .profile{display:flex;align-items:flex-start;gap:20px;margin-bottom:16px}
+      .profile img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #0d9488}
+      .profile .initials{width:100px;height:100px;border-radius:50%;background:#f0fdfa;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:bold;border:3px solid #0d9488}</style></head>
       <body><div class="header"><h1>🩺 Harbourside Veterinary Clinic</h1><p>Owner Information Report</p></div>
-      <h2>${owner.name}</h2>
-      <p><strong>Contact:</strong> ${owner.contact} | <strong>Email:</strong> ${owner.email}</p>
-      <p><strong>Address:</strong> ${owner.address}</p>
+      <div class="profile">
+        ${ownerImg ? `<img src="${ownerImg}" alt="${owner.name}" />` : `<div class="initials">${initials}</div>`}
+        <div>
+          <h2 style="margin:0 0 8px">${owner.name}</h2>
+          <p><strong>Contact:</strong> ${owner.contact} | <strong>Email:</strong> ${owner.email}</p>
+          <p><strong>Address:</strong> ${owner.address}</p>
+        </div>
+      </div>
       <h3>Registered Pets</h3>
       <table><tr><th>Pet Name</th><th>Species</th><th>Breed</th><th>Gender</th></tr>
       ${pets.map(p => `<tr><td>${p.name}</td><td>${p.species}</td><td>${p.breed}</td><td>${p.gender}</td></tr>`).join("")}
