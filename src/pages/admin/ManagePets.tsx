@@ -31,6 +31,7 @@ export default function ManagePets() {
   const handlePrint = (pet: Pet) => {
     const owner = getOwnerById(pet.ownerId);
     const vaccinations = getVaccinationsByPet(pet.id);
+    const petImg = getPetImage(pet);
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`
@@ -38,12 +39,20 @@ export default function ManagePets() {
       <style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a1a}
       h1{color:#0d9488;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:16px}
       th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f0fdfa;color:#0d9488}
-      .header{border-bottom:2px solid #0d9488;padding-bottom:12px;margin-bottom:20px}</style></head>
+      .header{border-bottom:2px solid #0d9488;padding-bottom:12px;margin-bottom:20px}
+      .profile{display:flex;align-items:flex-start;gap:20px;margin-bottom:16px}
+      .profile img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #0d9488}
+      .profile .initials{width:100px;height:100px;border-radius:50%;background:#f0fdfa;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:bold;border:3px solid #0d9488}</style></head>
       <body><div class="header"><h1>🩺 Harbourside Veterinary Clinic</h1><p>Pet Profile Report</p></div>
-      <h2>${pet.name}</h2>
-      <p><strong>Species:</strong> ${pet.species} | <strong>Breed:</strong> ${pet.breed} |
-      <strong>Gender:</strong> ${pet.gender} | <strong>DOB:</strong> ${pet.dob}</p>
-      <p><strong>Owner:</strong> ${owner?.name} | <strong>Contact:</strong> ${owner?.contact}</p>
+      <div class="profile">
+        ${petImg ? `<img src="${petImg}" alt="${pet.name}" />` : `<div class="initials">${pet.name[0]}</div>`}
+        <div>
+          <h2 style="margin:0 0 8px">${pet.name}</h2>
+          <p><strong>Species:</strong> ${pet.species} | <strong>Breed:</strong> ${pet.breed} |
+          <strong>Gender:</strong> ${pet.gender} | <strong>DOB:</strong> ${pet.dob}</p>
+          <p><strong>Owner:</strong> ${owner?.name} | <strong>Contact:</strong> ${owner?.contact}</p>
+        </div>
+      </div>
       <h3>Vaccination Records</h3>
       <table><tr><th>Vaccine</th><th>Date Given</th><th>Next Due</th><th>Notes</th></tr>
       ${vaccinations.map(v => `<tr><td>${v.vaccineType}</td><td>${v.dateGiven}</td><td>${v.nextDue}</td><td>${v.notes}</td></tr>`).join("")}
