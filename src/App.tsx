@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import LoginPage from "./pages/LoginPage";
 import AdminLayout from "./layouts/AdminLayout";
+import UserLayout from "./layouts/UserLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManagePets from "./pages/admin/ManagePets";
 import ManageOwners from "./pages/admin/ManageOwners";
@@ -15,6 +16,9 @@ import Inventory from "./pages/admin/Inventory";
 import Reports from "./pages/admin/Reports";
 import Reminders from "./pages/admin/Reminders";
 import UserDashboard from "./pages/user/UserDashboard";
+import UserPets from "./pages/user/UserPets";
+import UserAppointments from "./pages/user/UserAppointments";
+import UserVaccinations from "./pages/user/UserVaccinations";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,7 +47,12 @@ const App = () => (
           </Route>
 
           {/* User Routes */}
-          <Route path="/user" element={<UserDashboard />} />
+          <Route path="/user" element={<UserLayout />}>
+            <Route index element={<UserDashboard />} />
+            <Route path="pets" element={<UserPets />} />
+            <Route path="appointments" element={<UserAppointments />} />
+            <Route path="vaccinations" element={<UserVaccinations />} />
+          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>
