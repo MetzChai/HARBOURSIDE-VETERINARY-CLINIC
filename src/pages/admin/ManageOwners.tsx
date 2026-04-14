@@ -4,18 +4,23 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Eye, Pencil, Printer, Search, Users } from "lucide-react";
 import { mockOwners, getPetsByOwner } from "@/lib/mock-data";
 import type { Owner } from "@/lib/mock-data";
+import ImageUpload from "@/components/ImageUpload";
 
 export default function ManageOwners() {
   const [search, setSearch] = useState("");
   const [viewOwner, setViewOwner] = useState<Owner | null>(null);
+  const [ownerImages, setOwnerImages] = useState<Record<string, string>>({});
 
   const filtered = mockOwners.filter(o =>
     o.name.toLowerCase().includes(search.toLowerCase()) ||
     o.email.toLowerCase().includes(search.toLowerCase())
   );
+
+  const getOwnerImage = (owner: Owner) => ownerImages[owner.id] || owner.imageUrl;
 
   const handlePrint = (owner: Owner) => {
     const pets = getPetsByOwner(owner.id);
@@ -68,7 +73,17 @@ export default function ManageOwners() {
             <TableBody>
               {filtered.map(owner => (
                 <TableRow key={owner.id}>
-                  <TableCell className="font-medium">{owner.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={getOwnerImage(owner)} alt={owner.name} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                          {owner.name.split(" ").map(n => n[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{owner.name}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>{owner.contact}</TableCell>
                   <TableCell>{owner.email}</TableCell>
                   <TableCell className="max-w-[200px] truncate">{owner.address}</TableCell>
@@ -95,19 +110,30 @@ export default function ManageOwners() {
                   <Users className="h-5 w-5 text-primary" /> {viewOwner.name}
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-2 text-sm">
-                <p><span className="text-muted-foreground">Contact:</span> {viewOwner.contact}</p>
-                <p><span className="text-muted-foreground">Email:</span> {viewOwner.email}</p>
-                <p><span className="text-muted-foreground">Address:</span> {viewOwner.address}</p>
+              <div className="flex items-start gap-4">
+                <ImageUpload
+                  currentImage={getOwnerImage(viewOwner)}
+                  fallback={viewOwner.name.split(" ").map(n => n[0]).join("")}
+                  folder="owners"
+                  size="lg"
+                  onImageUploaded={(url) => setOwnerImages(prev => ({ ...prev, [viewOwner.id]: url }))}
+                />
+                <div className="space-y-2 text-sm flex-1">
+                  <p><span className="text-muted-foreground">Contact:</span> {viewOwner.contact}</p>
+                  <p><span className="text-muted-foreground">Email:</span> {viewOwner.email}</p>
+                  <p><span className="text-muted-foreground">Address:</span> {viewOwner.address}</p>
+                </div>
               </div>
               <div className="mt-4">
                 <h4 className="font-heading font-semibold mb-2">Registered Pets</h4>
                 <div className="space-y-2">
                   {getPetsByOwner(viewOwner.id).map(pet => (
                     <div key={pet.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-primary">{pet.name[0]}</span>
-                      </div>
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                          {pet.name[0]}
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                         <p className="font-medium text-sm">{pet.name}</p>
                         <p className="text-xs text-muted-foreground">{pet.species} · {pet.breed}</p>

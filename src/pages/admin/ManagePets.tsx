@@ -2,26 +2,31 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Eye, Pencil, Trash2, Printer, Search, PawPrint } from "lucide-react";
 import { mockPets, mockOwners, getOwnerById, getVaccinationsByPet, getCheckupsByPet, getTreatmentsByPet } from "@/lib/mock-data";
 import type { Pet } from "@/lib/mock-data";
+import ImageUpload from "@/components/ImageUpload";
 
 export default function ManagePets() {
   const [search, setSearch] = useState("");
   const [viewPet, setViewPet] = useState<Pet | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [petImages, setPetImages] = useState<Record<string, string>>({});
 
   const filtered = mockPets.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.species.toLowerCase().includes(search.toLowerCase()) ||
     getOwnerById(p.ownerId)?.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const getPetImage = (pet: Pet) => petImages[pet.id] || pet.imageUrl;
 
   const handlePrint = (pet: Pet) => {
     const owner = getOwnerById(pet.ownerId);
@@ -63,6 +68,14 @@ export default function ManagePets() {
           <DialogContent>
             <DialogHeader><DialogTitle className="font-heading">Add New Pet</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
+              <div className="flex justify-center">
+                <ImageUpload
+                  fallback="?"
+                  folder="pets"
+                  size="lg"
+                  onImageUploaded={(url) => console.log("New pet image:", url)}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Pet Name</Label><Input placeholder="e.g. Max" /></div>
                 <div className="space-y-2"><Label>Species</Label>
@@ -96,20 +109,17 @@ export default function ManagePets() {
         </Dialog>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input placeholder="Search pets..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* Table */}
       <Card className="border-0 shadow-sm">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Pet Name</TableHead>
+                <TableHead>Pet</TableHead>
                 <TableHead>Species</TableHead>
                 <TableHead>Breed</TableHead>
                 <TableHead>Owner</TableHead>
@@ -119,8 +129,17 @@ export default function ManagePets() {
             <TableBody>
               {filtered.map(pet => (
                 <TableRow key={pet.id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{pet.id}</TableCell>
-                  <TableCell className="font-medium">{pet.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={getPetImage(pet)} alt={pet.name} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                          {pet.name[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{pet.name}</span>
+                    </div>
+                  </TableCell>
                   <TableCell><Badge variant="secondary">{pet.species}</Badge></TableCell>
                   <TableCell>{pet.breed}</TableCell>
                   <TableCell>{getOwnerById(pet.ownerId)?.name}</TableCell>
@@ -139,7 +158,6 @@ export default function ManagePets() {
         </CardContent>
       </Card>
 
-      {/* View Pet Dialog */}
       <Dialog open={!!viewPet} onOpenChange={() => setViewPet(null)}>
         <DialogContent className="max-w-2xl">
           {viewPet && (
@@ -149,12 +167,21 @@ export default function ManagePets() {
                   <PawPrint className="h-5 w-5 text-primary" /> {viewPet.name}'s Profile
                 </DialogTitle>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-muted-foreground">Species:</span> {viewPet.species}</div>
-                <div><span className="text-muted-foreground">Breed:</span> {viewPet.breed}</div>
-                <div><span className="text-muted-foreground">Gender:</span> {viewPet.gender}</div>
-                <div><span className="text-muted-foreground">DOB:</span> {viewPet.dob}</div>
-                <div className="col-span-2"><span className="text-muted-foreground">Owner:</span> {getOwnerById(viewPet.ownerId)?.name}</div>
+              <div className="flex items-start gap-4">
+                <ImageUpload
+                  currentImage={getPetImage(viewPet)}
+                  fallback={viewPet.name[0]}
+                  folder="pets"
+                  size="lg"
+                  onImageUploaded={(url) => setPetImages(prev => ({ ...prev, [viewPet.id]: url }))}
+                />
+                <div className="grid grid-cols-2 gap-4 text-sm flex-1">
+                  <div><span className="text-muted-foreground">Species:</span> {viewPet.species}</div>
+                  <div><span className="text-muted-foreground">Breed:</span> {viewPet.breed}</div>
+                  <div><span className="text-muted-foreground">Gender:</span> {viewPet.gender}</div>
+                  <div><span className="text-muted-foreground">DOB:</span> {viewPet.dob}</div>
+                  <div className="col-span-2"><span className="text-muted-foreground">Owner:</span> {getOwnerById(viewPet.ownerId)?.name}</div>
+                </div>
               </div>
               <Tabs defaultValue="vaccines" className="mt-4">
                 <TabsList>
