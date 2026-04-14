@@ -17,6 +17,7 @@ export interface Owner {
   contact: string;
   email: string;
   address: string;
+  imageUrl?: string;
 }
 
 export interface Appointment {
