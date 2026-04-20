@@ -1,24 +1,51 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Eye, Pencil, Printer, Search, Users } from "lucide-react";
+import { Eye, Pencil, Plus, Printer, Search, Users } from "lucide-react";
 import { mockOwners, getPetsByOwner } from "@/lib/mock-data";
 import type { Owner } from "@/lib/mock-data";
 import ImageUpload from "@/components/ImageUpload";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ManageOwners() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [viewOwner, setViewOwner] = useState<Owner | null>(null);
   const [ownerImages, setOwnerImages] = useState<Record<string, string>>({});
+  const [owners, setOwners] = useState<Owner[]>(mockOwners);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newOwner, setNewOwner] = useState({ name: "", contact: "", email: "", address: "", imageUrl: "" });
 
-  const filtered = mockOwners.filter(o =>
+  const filtered = owners.filter(o =>
     o.name.toLowerCase().includes(search.toLowerCase()) ||
     o.email.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleAddOwner = () => {
+    if (!newOwner.name.trim() || !newOwner.email.trim()) {
+      toast({ title: "Missing fields", description: "Name and email are required.", variant: "destructive" });
+      return;
+    }
+    const id = `o${Date.now()}`;
+    const owner: Owner = {
+      id,
+      name: newOwner.name.trim(),
+      contact: newOwner.contact.trim(),
+      email: newOwner.email.trim(),
+      address: newOwner.address.trim(),
+      imageUrl: newOwner.imageUrl || undefined,
+    };
+    setOwners(prev => [owner, ...prev]);
+    if (newOwner.imageUrl) setOwnerImages(prev => ({ ...prev, [id]: newOwner.imageUrl }));
+    setNewOwner({ name: "", contact: "", email: "", address: "", imageUrl: "" });
+    setShowAdd(false);
+    toast({ title: "Owner added", description: `${owner.name} has been registered.` });
+  };
 
   const getOwnerImage = (owner: Owner) => ownerImages[owner.id] || owner.imageUrl;
 
@@ -58,9 +85,14 @@ export default function ManageOwners() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Manage Owners</h1>
-        <p className="text-muted-foreground text-sm">{mockOwners.length} owners registered</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Manage Owners</h1>
+          <p className="text-muted-foreground text-sm">{owners.length} owners registered</p>
+        </div>
+        <Button onClick={() => setShowAdd(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Add Owner
+        </Button>
       </div>
 
       <div className="relative max-w-sm">
@@ -159,6 +191,49 @@ export default function ManageOwners() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" /> Add New Owner
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center">
+            <ImageUpload
+              currentImage={newOwner.imageUrl}
+              fallback={newOwner.name ? newOwner.name.split(" ").map(n => n[0]).join("") : "?"}
+              folder="owners"
+              size="lg"
+              onImageUploaded={(url) => setNewOwner(prev => ({ ...prev, imageUrl: url }))}
+            />
+          </div>
+          <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="owner-name">Full Name *</Label>
+              <Input id="owner-name" value={newOwner.name} onChange={e => setNewOwner(p => ({ ...p, name: e.target.value }))} placeholder="Juan Dela Cruz" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="owner-contact">Contact</Label>
+                <Input id="owner-contact" value={newOwner.contact} onChange={e => setNewOwner(p => ({ ...p, contact: e.target.value }))} placeholder="09171234567" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="owner-email">Email *</Label>
+                <Input id="owner-email" type="email" value={newOwner.email} onChange={e => setNewOwner(p => ({ ...p, email: e.target.value }))} placeholder="owner@email.com" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="owner-address">Address</Label>
+              <Input id="owner-address" value={newOwner.address} onChange={e => setNewOwner(p => ({ ...p, address: e.target.value }))} placeholder="123 Main St, City" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button onClick={handleAddOwner}>Save Owner</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
