@@ -4,15 +4,56 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Eye, EyeOff, Mail, Lock, PawPrint, Heart, Stethoscope } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Eye, EyeOff, Mail, Lock, PawPrint, Heart, Stethoscope, User, Phone } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [signupForm, setSignupForm] = useState({
+    fullName: "",
+    email: "",
+    contact: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [signupError, setSignupError] = useState("");
+
+  const handleSignup = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSignupError("");
+    const { fullName, email, contact, password, confirmPassword } = signupForm;
+    if (!fullName || !email || !contact || !password) {
+      setSignupError("Please fill in all required fields.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setSignupError("Please enter a valid email address.");
+      return;
+    }
+    if (password.length < 6) {
+      setSignupError("Password must be at least 6 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setSignupError("Passwords do not match.");
+      return;
+    }
+    toast({
+      title: "Account created",
+      description: `Welcome, ${fullName}! You can now sign in.`,
+    });
+    setShowSignup(false);
+    setSignupForm({ fullName: "", email: "", contact: "", password: "", confirmPassword: "" });
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
