@@ -193,7 +193,7 @@ export default function LoginPage() {
 
                 <p className="text-sm text-center text-muted-foreground">
                   Don't have an account?{" "}
-                  <button type="button" className="text-primary hover:underline font-medium">
+                  <button type="button" onClick={() => setShowSignup(true)} className="text-primary hover:underline font-medium">
                     Sign up
                   </button>
                 </p>
