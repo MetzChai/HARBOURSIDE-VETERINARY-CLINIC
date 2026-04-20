@@ -277,6 +277,75 @@ export default function ManagePets() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editPet} onOpenChange={(open) => !open && setEditPet(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" /> Edit Pet
+            </DialogTitle>
+          </DialogHeader>
+          {editPet && (
+            <div className="space-y-4 pt-2">
+              <div className="flex justify-center">
+                <ImageUpload
+                  currentImage={editForm.imageUrl}
+                  fallback={editForm.name ? editForm.name[0] : "?"}
+                  folder="pets"
+                  size="lg"
+                  onImageUploaded={(url) => setEditForm(prev => ({ ...prev, imageUrl: url }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Pet Name</Label><Input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Species</Label>
+                  <Select value={editForm.species} onValueChange={v => setEditForm(p => ({ ...p, species: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent><SelectItem value="Dog">Dog</SelectItem><SelectItem value="Cat">Cat</SelectItem><SelectItem value="Bird">Bird</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Breed</Label><Input value={editForm.breed} onChange={e => setEditForm(p => ({ ...p, breed: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Gender</Label>
+                  <Select value={editForm.gender} onValueChange={v => setEditForm(p => ({ ...p, gender: v as "Male" | "Female" }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Date of Birth</Label><Input type="date" value={editForm.dob} onChange={e => setEditForm(p => ({ ...p, dob: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Owner</Label>
+                  <Select value={editForm.ownerId} onValueChange={v => setEditForm(p => ({ ...p, ownerId: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select owner" /></SelectTrigger>
+                    <SelectContent>{mockOwners.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditPet(null)}>Cancel</Button>
+                <Button onClick={handleSaveEdit}>Save Changes</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletePet} onOpenChange={(open) => !open && setDeletePet(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete pet?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {deletePet?.name} from the records. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
