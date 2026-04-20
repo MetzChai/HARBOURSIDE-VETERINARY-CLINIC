@@ -101,7 +101,7 @@ export default function Schedule() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockAppointments.map(a => (
+              {appointments.map(a => (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{a.petName}</TableCell>
                   <TableCell>{a.ownerName}</TableCell>
@@ -110,9 +110,16 @@ export default function Schedule() {
                   <TableCell>{a.vet}</TableCell>
                   <TableCell>{a.reason}</TableCell>
                   <TableCell>
-                    <Badge variant={a.status === "Completed" ? "default" : a.status === "Missed" ? "destructive" : "secondary"}>
-                      {a.status}
-                    </Badge>
+                    <Select value={a.status} onValueChange={(v) => updateStatus(a.id, v as Status)}>
+                      <SelectTrigger className="h-8 w-[140px] border-0 bg-transparent p-0 hover:bg-accent/50 focus:ring-1">
+                        <Badge variant={statusVariant(a.status)} className="cursor-pointer">
+                          {a.status}
+                        </Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                 </TableRow>
               ))}
