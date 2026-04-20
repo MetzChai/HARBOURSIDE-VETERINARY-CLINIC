@@ -193,6 +193,49 @@ export default function ManageOwners() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" /> Add New Owner
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center">
+            <ImageUpload
+              currentImage={newOwner.imageUrl}
+              fallback={newOwner.name ? newOwner.name.split(" ").map(n => n[0]).join("") : "?"}
+              folder="owners"
+              size="lg"
+              onImageUploaded={(url) => setNewOwner(prev => ({ ...prev, imageUrl: url }))}
+            />
+          </div>
+          <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="owner-name">Full Name *</Label>
+              <Input id="owner-name" value={newOwner.name} onChange={e => setNewOwner(p => ({ ...p, name: e.target.value }))} placeholder="Juan Dela Cruz" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="owner-contact">Contact</Label>
+                <Input id="owner-contact" value={newOwner.contact} onChange={e => setNewOwner(p => ({ ...p, contact: e.target.value }))} placeholder="09171234567" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="owner-email">Email *</Label>
+                <Input id="owner-email" type="email" value={newOwner.email} onChange={e => setNewOwner(p => ({ ...p, email: e.target.value }))} placeholder="owner@email.com" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="owner-address">Address</Label>
+              <Input id="owner-address" value={newOwner.address} onChange={e => setNewOwner(p => ({ ...p, address: e.target.value }))} placeholder="123 Main St, City" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button onClick={handleAddOwner}>Save Owner</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
