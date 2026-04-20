@@ -9,9 +9,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Printer } from "lucide-react";
 import { mockAppointments, mockPets } from "@/lib/mock-data";
+import type { Appointment } from "@/lib/mock-data";
+import { useToast } from "@/hooks/use-toast";
+
+type Status = Appointment["status"];
+const STATUSES: Status[] = ["Scheduled", "Completed", "Missed", "Cancelled"];
+
+const statusVariant = (s: Status) =>
+  s === "Completed" ? "default" : s === "Missed" || s === "Cancelled" ? "destructive" : "secondary";
 
 export default function Schedule() {
+  const { toast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
+  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+
+  const updateStatus = (id: string, status: Status) => {
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+    toast({ title: "Status updated", description: `Appointment marked as ${status}.` });
+  };
 
   const handlePrint = () => {
     const w = window.open("", "_blank");
@@ -23,7 +38,7 @@ export default function Schedule() {
       th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f0fdfa;color:#0d9488}</style></head>
       <body><h1>🩺 Harbourside Veterinary Clinic</h1><h2>Appointment Schedule</h2>
       <table><tr><th>Pet</th><th>Owner</th><th>Date</th><th>Time</th><th>Vet</th><th>Reason</th><th>Status</th></tr>
-      ${mockAppointments.map(a => `<tr><td>${a.petName}</td><td>${a.ownerName}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet}</td><td>${a.reason}</td><td>${a.status}</td></tr>`).join("")}
+      ${appointments.map(a => `<tr><td>${a.petName}</td><td>${a.ownerName}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet}</td><td>${a.reason}</td><td>${a.status}</td></tr>`).join("")}
       </table><br><p style="color:#999;font-size:12px">Generated on ${new Date().toLocaleDateString()}</p></body></html>
     `);
     w.document.close();
@@ -86,7 +101,7 @@ export default function Schedule() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockAppointments.map(a => (
+              {appointments.map(a => (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{a.petName}</TableCell>
                   <TableCell>{a.ownerName}</TableCell>
@@ -95,9 +110,16 @@ export default function Schedule() {
                   <TableCell>{a.vet}</TableCell>
                   <TableCell>{a.reason}</TableCell>
                   <TableCell>
-                    <Badge variant={a.status === "Completed" ? "default" : a.status === "Missed" ? "destructive" : "secondary"}>
-                      {a.status}
-                    </Badge>
+                    <Select value={a.status} onValueChange={(v) => updateStatus(a.id, v as Status)}>
+                      <SelectTrigger className="h-8 w-[140px] border-0 bg-transparent p-0 hover:bg-accent/50 focus:ring-1">
+                        <Badge variant={statusVariant(a.status)} className="cursor-pointer">
+                          {a.status}
+                        </Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                 </TableRow>
               ))}
