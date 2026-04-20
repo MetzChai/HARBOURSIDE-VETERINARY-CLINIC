@@ -38,7 +38,7 @@ export default function Schedule() {
       th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f0fdfa;color:#0d9488}</style></head>
       <body><h1>🩺 Harbourside Veterinary Clinic</h1><h2>Appointment Schedule</h2>
       <table><tr><th>Pet</th><th>Owner</th><th>Date</th><th>Time</th><th>Vet</th><th>Reason</th><th>Status</th></tr>
-      ${mockAppointments.map(a => `<tr><td>${a.petName}</td><td>${a.ownerName}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet}</td><td>${a.reason}</td><td>${a.status}</td></tr>`).join("")}
+      ${appointments.map(a => `<tr><td>${a.petName}</td><td>${a.ownerName}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet}</td><td>${a.reason}</td><td>${a.status}</td></tr>`).join("")}
       </table><br><p style="color:#999;font-size:12px">Generated on ${new Date().toLocaleDateString()}</p></body></html>
     `);
     w.document.close();
