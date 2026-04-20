@@ -85,9 +85,14 @@ export default function ManageOwners() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Manage Owners</h1>
-        <p className="text-muted-foreground text-sm">{mockOwners.length} owners registered</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Manage Owners</h1>
+          <p className="text-muted-foreground text-sm">{owners.length} owners registered</p>
+        </div>
+        <Button onClick={() => setShowAdd(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Add Owner
+        </Button>
       </div>
 
       <div className="relative max-w-sm">
