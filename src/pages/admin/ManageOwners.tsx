@@ -20,6 +20,38 @@ export default function ManageOwners() {
   const [owners, setOwners] = useState<Owner[]>(mockOwners);
   const [showAdd, setShowAdd] = useState(false);
   const [newOwner, setNewOwner] = useState({ name: "", contact: "", email: "", address: "", imageUrl: "" });
+  const [editOwner, setEditOwner] = useState<Owner | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", contact: "", email: "", address: "", imageUrl: "" });
+
+  const openEdit = (owner: Owner) => {
+    setEditOwner(owner);
+    setEditForm({
+      name: owner.name,
+      contact: owner.contact,
+      email: owner.email,
+      address: owner.address,
+      imageUrl: ownerImages[owner.id] || owner.imageUrl || "",
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editOwner) return;
+    if (!editForm.name.trim() || !editForm.email.trim()) {
+      toast({ title: "Missing fields", description: "Name and email are required.", variant: "destructive" });
+      return;
+    }
+    setOwners(prev => prev.map(o => o.id === editOwner.id ? {
+      ...o,
+      name: editForm.name.trim(),
+      contact: editForm.contact.trim(),
+      email: editForm.email.trim(),
+      address: editForm.address.trim(),
+      imageUrl: editForm.imageUrl || undefined,
+    } : o));
+    if (editForm.imageUrl) setOwnerImages(prev => ({ ...prev, [editOwner.id]: editForm.imageUrl }));
+    toast({ title: "Owner updated", description: `${editForm.name} has been updated.` });
+    setEditOwner(null);
+  };
 
   const filtered = owners.filter(o =>
     o.name.toLowerCase().includes(search.toLowerCase()) ||
