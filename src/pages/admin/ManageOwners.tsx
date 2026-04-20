@@ -1,24 +1,51 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Eye, Pencil, Printer, Search, Users } from "lucide-react";
+import { Eye, Pencil, Plus, Printer, Search, Users } from "lucide-react";
 import { mockOwners, getPetsByOwner } from "@/lib/mock-data";
 import type { Owner } from "@/lib/mock-data";
 import ImageUpload from "@/components/ImageUpload";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ManageOwners() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [viewOwner, setViewOwner] = useState<Owner | null>(null);
   const [ownerImages, setOwnerImages] = useState<Record<string, string>>({});
+  const [owners, setOwners] = useState<Owner[]>(mockOwners);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newOwner, setNewOwner] = useState({ name: "", contact: "", email: "", address: "", imageUrl: "" });
 
-  const filtered = mockOwners.filter(o =>
+  const filtered = owners.filter(o =>
     o.name.toLowerCase().includes(search.toLowerCase()) ||
     o.email.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleAddOwner = () => {
+    if (!newOwner.name.trim() || !newOwner.email.trim()) {
+      toast({ title: "Missing fields", description: "Name and email are required.", variant: "destructive" });
+      return;
+    }
+    const id = `o${Date.now()}`;
+    const owner: Owner = {
+      id,
+      name: newOwner.name.trim(),
+      contact: newOwner.contact.trim(),
+      email: newOwner.email.trim(),
+      address: newOwner.address.trim(),
+      imageUrl: newOwner.imageUrl || undefined,
+    };
+    setOwners(prev => [owner, ...prev]);
+    if (newOwner.imageUrl) setOwnerImages(prev => ({ ...prev, [id]: newOwner.imageUrl }));
+    setNewOwner({ name: "", contact: "", email: "", address: "", imageUrl: "" });
+    setShowAdd(false);
+    toast({ title: "Owner added", description: `${owner.name} has been registered.` });
+  };
 
   const getOwnerImage = (owner: Owner) => ownerImages[owner.id] || owner.imageUrl;
 
