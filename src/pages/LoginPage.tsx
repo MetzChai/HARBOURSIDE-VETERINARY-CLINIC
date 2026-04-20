@@ -231,6 +231,64 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={showSignup} onOpenChange={setShowSignup}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl">Create your account</DialogTitle>
+            <DialogDescription>Sign up as a pet owner to manage your pets and appointments.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="signup-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Full Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input id="signup-name" placeholder="Jane Doe" value={signupForm.fullName} onChange={(e) => setSignupForm({ ...signupForm, fullName: e.target.value })} className="pl-10 h-11" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email Address</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input id="signup-email" type="email" placeholder="you@example.com" value={signupForm.email} onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })} className="pl-10 h-11" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-contact" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact Number</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input id="signup-contact" placeholder="+63 900 000 0000" value={signupForm.contact} onChange={(e) => setSignupForm({ ...signupForm, contact: e.target.value })} className="pl-10 h-11" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input id="signup-password" type={showSignupPassword ? "text" : "password"} placeholder="At least 6 characters" value={signupForm.password} onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })} className="pl-10 pr-10 h-11" />
+                <button type="button" onClick={() => setShowSignupPassword(!showSignupPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                  {showSignupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-confirm" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Confirm Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input id="signup-confirm" type={showSignupPassword ? "text" : "password"} placeholder="Re-enter password" value={signupForm.confirmPassword} onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })} className="pl-10 h-11" />
+              </div>
+            </div>
+
+            {signupError && (
+              <p className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 text-center font-medium">{signupError}</p>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowSignup(false)} className="h-11">Cancel</Button>
+              <Button type="submit" className="h-11">Create Account</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
