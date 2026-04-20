@@ -9,9 +9,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Printer } from "lucide-react";
 import { mockAppointments, mockPets } from "@/lib/mock-data";
+import type { Appointment } from "@/lib/mock-data";
+import { useToast } from "@/hooks/use-toast";
+
+type Status = Appointment["status"];
+const STATUSES: Status[] = ["Scheduled", "Completed", "Missed", "Cancelled"];
+
+const statusVariant = (s: Status) =>
+  s === "Completed" ? "default" : s === "Missed" || s === "Cancelled" ? "destructive" : "secondary";
 
 export default function Schedule() {
+  const { toast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
+  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+
+  const updateStatus = (id: string, status: Status) => {
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+    toast({ title: "Status updated", description: `Appointment marked as ${status}.` });
+  };
 
   const handlePrint = () => {
     const w = window.open("", "_blank");
