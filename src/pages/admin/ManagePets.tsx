@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,14 +20,54 @@ export default function ManagePets() {
   const [viewPet, setViewPet] = useState<Pet | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [petImages, setPetImages] = useState<Record<string, string>>({});
+  const [pets, setPets] = useState<Pet[]>(mockPets);
+  const [editPet, setEditPet] = useState<Pet | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", species: "", breed: "", gender: "Male" as "Male" | "Female", dob: "", ownerId: "", imageUrl: "" });
+  const [deletePet, setDeletePet] = useState<Pet | null>(null);
 
-  const filtered = mockPets.filter(p =>
+  const filtered = pets.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.species.toLowerCase().includes(search.toLowerCase()) ||
     getOwnerById(p.ownerId)?.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const getPetImage = (pet: Pet) => petImages[pet.id] || pet.imageUrl;
+
+  const openEdit = (pet: Pet) => {
+    setEditPet(pet);
+    setEditForm({
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      gender: pet.gender,
+      dob: pet.dob,
+      ownerId: pet.ownerId,
+      imageUrl: petImages[pet.id] || pet.imageUrl || "",
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editPet) return;
+    if (!editForm.name.trim() || !editForm.species || !editForm.ownerId) return;
+    setPets(prev => prev.map(p => p.id === editPet.id ? {
+      ...p,
+      name: editForm.name.trim(),
+      species: editForm.species,
+      breed: editForm.breed.trim(),
+      gender: editForm.gender,
+      dob: editForm.dob,
+      ownerId: editForm.ownerId,
+      imageUrl: editForm.imageUrl || undefined,
+    } : p));
+    if (editForm.imageUrl) setPetImages(prev => ({ ...prev, [editPet.id]: editForm.imageUrl }));
+    setEditPet(null);
+  };
+
+  const handleDelete = () => {
+    if (!deletePet) return;
+    setPets(prev => prev.filter(p => p.id !== deletePet.id));
+    setDeletePet(null);
+  };
 
   const handlePrint = (pet: Pet) => {
     const owner = getOwnerById(pet.ownerId);
@@ -68,7 +109,7 @@ export default function ManagePets() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold">Manage Pets</h1>
-          <p className="text-muted-foreground text-sm">{mockPets.length} pets registered</p>
+          <p className="text-muted-foreground text-sm">{pets.length} pets registered</p>
         </div>
         <Dialog open={showAdd} onOpenChange={setShowAdd}>
           <DialogTrigger asChild>
@@ -155,8 +196,8 @@ export default function ManagePets() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" onClick={() => setViewPet(pet)}><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(pet)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeletePet(pet)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => handlePrint(pet)}><Printer className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>
@@ -236,6 +277,75 @@ export default function ManagePets() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editPet} onOpenChange={(open) => !open && setEditPet(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" /> Edit Pet
+            </DialogTitle>
+          </DialogHeader>
+          {editPet && (
+            <div className="space-y-4 pt-2">
+              <div className="flex justify-center">
+                <ImageUpload
+                  currentImage={editForm.imageUrl}
+                  fallback={editForm.name ? editForm.name[0] : "?"}
+                  folder="pets"
+                  size="lg"
+                  onImageUploaded={(url) => setEditForm(prev => ({ ...prev, imageUrl: url }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Pet Name</Label><Input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Species</Label>
+                  <Select value={editForm.species} onValueChange={v => setEditForm(p => ({ ...p, species: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent><SelectItem value="Dog">Dog</SelectItem><SelectItem value="Cat">Cat</SelectItem><SelectItem value="Bird">Bird</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Breed</Label><Input value={editForm.breed} onChange={e => setEditForm(p => ({ ...p, breed: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Gender</Label>
+                  <Select value={editForm.gender} onValueChange={v => setEditForm(p => ({ ...p, gender: v as "Male" | "Female" }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Date of Birth</Label><Input type="date" value={editForm.dob} onChange={e => setEditForm(p => ({ ...p, dob: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Owner</Label>
+                  <Select value={editForm.ownerId} onValueChange={v => setEditForm(p => ({ ...p, ownerId: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select owner" /></SelectTrigger>
+                    <SelectContent>{mockOwners.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditPet(null)}>Cancel</Button>
+                <Button onClick={handleSaveEdit}>Save Changes</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletePet} onOpenChange={(open) => !open && setDeletePet(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete pet?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {deletePet?.name} from the records. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -20,6 +20,38 @@ export default function ManageOwners() {
   const [owners, setOwners] = useState<Owner[]>(mockOwners);
   const [showAdd, setShowAdd] = useState(false);
   const [newOwner, setNewOwner] = useState({ name: "", contact: "", email: "", address: "", imageUrl: "" });
+  const [editOwner, setEditOwner] = useState<Owner | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", contact: "", email: "", address: "", imageUrl: "" });
+
+  const openEdit = (owner: Owner) => {
+    setEditOwner(owner);
+    setEditForm({
+      name: owner.name,
+      contact: owner.contact,
+      email: owner.email,
+      address: owner.address,
+      imageUrl: ownerImages[owner.id] || owner.imageUrl || "",
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editOwner) return;
+    if (!editForm.name.trim() || !editForm.email.trim()) {
+      toast({ title: "Missing fields", description: "Name and email are required.", variant: "destructive" });
+      return;
+    }
+    setOwners(prev => prev.map(o => o.id === editOwner.id ? {
+      ...o,
+      name: editForm.name.trim(),
+      contact: editForm.contact.trim(),
+      email: editForm.email.trim(),
+      address: editForm.address.trim(),
+      imageUrl: editForm.imageUrl || undefined,
+    } : o));
+    if (editForm.imageUrl) setOwnerImages(prev => ({ ...prev, [editOwner.id]: editForm.imageUrl }));
+    toast({ title: "Owner updated", description: `${editForm.name} has been updated.` });
+    setEditOwner(null);
+  };
 
   const filtered = owners.filter(o =>
     o.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -132,7 +164,7 @@ export default function ManageOwners() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" onClick={() => setViewOwner(owner)}><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(owner)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => handlePrint(owner)}><Printer className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>
@@ -234,6 +266,53 @@ export default function ManageOwners() {
             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
             <Button onClick={handleAddOwner}>Save Owner</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editOwner} onOpenChange={(open) => !open && setEditOwner(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" /> Edit Owner
+            </DialogTitle>
+          </DialogHeader>
+          {editOwner && (
+            <>
+              <div className="flex justify-center">
+                <ImageUpload
+                  currentImage={editForm.imageUrl}
+                  fallback={editForm.name ? editForm.name.split(" ").map(n => n[0]).join("") : "?"}
+                  folder="owners"
+                  size="lg"
+                  onImageUploaded={(url) => setEditForm(prev => ({ ...prev, imageUrl: url }))}
+                />
+              </div>
+              <div className="grid gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-owner-name">Full Name *</Label>
+                  <Input id="edit-owner-name" value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-owner-contact">Contact</Label>
+                    <Input id="edit-owner-contact" value={editForm.contact} onChange={e => setEditForm(p => ({ ...p, contact: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-owner-email">Email *</Label>
+                    <Input id="edit-owner-email" type="email" value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-owner-address">Address</Label>
+                  <Input id="edit-owner-address" value={editForm.address} onChange={e => setEditForm(p => ({ ...p, address: e.target.value }))} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditOwner(null)}>Cancel</Button>
+                <Button onClick={handleSaveEdit}>Save Changes</Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
