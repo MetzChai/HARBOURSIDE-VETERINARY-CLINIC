@@ -19,14 +19,54 @@ export default function ManagePets() {
   const [viewPet, setViewPet] = useState<Pet | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [petImages, setPetImages] = useState<Record<string, string>>({});
+  const [pets, setPets] = useState<Pet[]>(mockPets);
+  const [editPet, setEditPet] = useState<Pet | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", species: "", breed: "", gender: "Male" as "Male" | "Female", dob: "", ownerId: "", imageUrl: "" });
+  const [deletePet, setDeletePet] = useState<Pet | null>(null);
 
-  const filtered = mockPets.filter(p =>
+  const filtered = pets.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.species.toLowerCase().includes(search.toLowerCase()) ||
     getOwnerById(p.ownerId)?.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const getPetImage = (pet: Pet) => petImages[pet.id] || pet.imageUrl;
+
+  const openEdit = (pet: Pet) => {
+    setEditPet(pet);
+    setEditForm({
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      gender: pet.gender,
+      dob: pet.dob,
+      ownerId: pet.ownerId,
+      imageUrl: petImages[pet.id] || pet.imageUrl || "",
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editPet) return;
+    if (!editForm.name.trim() || !editForm.species || !editForm.ownerId) return;
+    setPets(prev => prev.map(p => p.id === editPet.id ? {
+      ...p,
+      name: editForm.name.trim(),
+      species: editForm.species,
+      breed: editForm.breed.trim(),
+      gender: editForm.gender,
+      dob: editForm.dob,
+      ownerId: editForm.ownerId,
+      imageUrl: editForm.imageUrl || undefined,
+    } : p));
+    if (editForm.imageUrl) setPetImages(prev => ({ ...prev, [editPet.id]: editForm.imageUrl }));
+    setEditPet(null);
+  };
+
+  const handleDelete = () => {
+    if (!deletePet) return;
+    setPets(prev => prev.filter(p => p.id !== deletePet.id));
+    setDeletePet(null);
+  };
 
   const handlePrint = (pet: Pet) => {
     const owner = getOwnerById(pet.ownerId);
