@@ -6,50 +6,50 @@
 
 @layer base {
   :root {
-    --background: 180 20% 99%;
-    --foreground: 200 25% 10%;
+    --background: 240 20% 99%;
+    --foreground: 240 15% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 200 25% 10%;
+    --card-foreground: 240 15% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 200 25% 10%;
+    --popover-foreground: 240 15% 12%;
 
-    --primary: 174 62% 38%;
+    --primary: 245 75% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 174 30% 94%;
-    --secondary-foreground: 174 62% 28%;
+    --secondary: 245 30% 96%;
+    --secondary-foreground: 245 60% 40%;
 
-    --muted: 200 15% 95%;
-    --muted-foreground: 200 10% 45%;
+    --muted: 240 15% 96%;
+    --muted-foreground: 240 8% 46%;
 
-    --accent: 174 30% 94%;
-    --accent-foreground: 174 62% 28%;
+    --accent: 270 70% 96%;
+    --accent-foreground: 270 60% 40%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 32 95% 55%;
     --warning-foreground: 0 0% 100%;
 
-    --success: 142 71% 40%;
+    --success: 152 70% 42%;
     --success-foreground: 0 0% 100%;
 
-    --border: 200 15% 90%;
-    --input: 200 15% 90%;
-    --ring: 174 62% 38%;
+    --border: 240 15% 92%;
+    --input: 240 15% 92%;
+    --ring: 245 75% 60%;
 
-    --radius: 0.625rem;
+    --radius: 0.875rem;
 
-    --sidebar-background: 200 25% 10%;
-    --sidebar-foreground: 200 10% 85%;
-    --sidebar-primary: 174 62% 48%;
+    --sidebar-background: 245 50% 8%;
+    --sidebar-foreground: 240 15% 88%;
+    --sidebar-primary: 245 85% 68%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 20% 16%;
-    --sidebar-accent-foreground: 200 10% 90%;
-    --sidebar-border: 200 20% 18%;
-    --sidebar-ring: 174 62% 48%;
+    --sidebar-accent: 245 40% 14%;
+    --sidebar-accent-foreground: 240 15% 92%;
+    --sidebar-border: 245 40% 16%;
+    --sidebar-ring: 270 80% 70%;
 
     --font-heading: 'Outfit', sans-serif;
     --font-body: 'Inter', sans-serif;
