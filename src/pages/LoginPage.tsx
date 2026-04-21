@@ -1,59 +1,18 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock, PawPrint, Heart, Stethoscope, User, Phone } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, PawPrint, Heart, Stethoscope } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showSignup, setShowSignup] = useState(false);
-  const [showSignupPassword, setShowSignupPassword] = useState(false);
-  const [signupForm, setSignupForm] = useState({
-    fullName: "",
-    email: "",
-    contact: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [signupError, setSignupError] = useState("");
-
-  const handleSignup = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSignupError("");
-    const { fullName, email, contact, password, confirmPassword } = signupForm;
-    if (!fullName || !email || !contact || !password) {
-      setSignupError("Please fill in all required fields.");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setSignupError("Please enter a valid email address.");
-      return;
-    }
-    if (password.length < 6) {
-      setSignupError("Password must be at least 6 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setSignupError("Passwords do not match.");
-      return;
-    }
-    toast({
-      title: "Account created",
-      description: `Welcome, ${fullName}! You can now sign in.`,
-    });
-    setShowSignup(false);
-    setSignupForm({ fullName: "", email: "", contact: "", password: "", confirmPassword: "" });
-  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,9 +152,9 @@ export default function LoginPage() {
 
                 <p className="text-sm text-center text-muted-foreground">
                   Don't have an account?{" "}
-                  <button type="button" onClick={() => setShowSignup(true)} className="text-primary hover:underline font-medium">
+                  <Link to="/signup" className="text-primary hover:underline font-medium">
                     Sign up
-                  </button>
+                  </Link>
                 </p>
 
                 <div className="relative my-2">
@@ -232,63 +191,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <Dialog open={showSignup} onOpenChange={setShowSignup}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-2xl">Create your account</DialogTitle>
-            <DialogDescription>Sign up as a pet owner to manage your pets and appointments.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="signup-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Full Name</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="signup-name" placeholder="Jane Doe" value={signupForm.fullName} onChange={(e) => setSignupForm({ ...signupForm, fullName: e.target.value })} className="pl-10 h-11" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signup-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="signup-email" type="email" placeholder="you@example.com" value={signupForm.email} onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })} className="pl-10 h-11" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signup-contact" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact Number</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="signup-contact" placeholder="+63 900 000 0000" value={signupForm.contact} onChange={(e) => setSignupForm({ ...signupForm, contact: e.target.value })} className="pl-10 h-11" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signup-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="signup-password" type={showSignupPassword ? "text" : "password"} placeholder="At least 6 characters" value={signupForm.password} onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })} className="pl-10 pr-10 h-11" />
-                <button type="button" onClick={() => setShowSignupPassword(!showSignupPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                  {showSignupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signup-confirm" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Confirm Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="signup-confirm" type={showSignupPassword ? "text" : "password"} placeholder="Re-enter password" value={signupForm.confirmPassword} onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })} className="pl-10 h-11" />
-              </div>
-            </div>
-
-            {signupError && (
-              <p className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 text-center font-medium">{signupError}</p>
-            )}
-
-            <DialogFooter className="gap-2 sm:gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowSignup(false)} className="h-11">Cancel</Button>
-              <Button type="submit" className="h-11">Create Account</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

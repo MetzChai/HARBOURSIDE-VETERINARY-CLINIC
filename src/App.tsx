@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
 import AdminLayout from "./layouts/AdminLayout";
 import UserLayout from "./layouts/UserLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -32,6 +33,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
