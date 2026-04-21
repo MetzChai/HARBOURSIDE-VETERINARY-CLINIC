@@ -1,0 +1,108 @@
+import { Bell, Syringe, Calendar, AlertTriangle, Package, CheckCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useMemo } from "react";
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  description: string;
+  type: "vaccine" | "appointment" | "inventory" | "alert";
+  time: string;
+}
+
+const iconMap = {
+  vaccine: Syringe,
+  appointment: Calendar,
+  inventory: Package,
+  alert: AlertTriangle,
+};
+
+const colorMap = {
+  vaccine: "text-destructive bg-destructive/10",
+  appointment: "text-amber-500 bg-amber-500/10",
+  inventory: "text-blue-500 bg-blue-500/10",
+  alert: "text-warning bg-warning/10",
+};
+
+interface Props {
+  notifications: NotificationItem[];
+}
+
+export default function NotificationBell({ notifications }: Props) {
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !readIds.has(n.id)).length,
+    [notifications, readIds]
+  );
+
+  const markAllRead = () => setReadIds(new Set(notifications.map((n) => n.id)));
+  const markRead = (id: string) =>
+    setReadIds((prev) => new Set(prev).add(id));
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+          <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] bg-destructive">
+              {unreadCount}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 p-0">
+        <div className="flex items-center justify-between p-3 border-b">
+          <div>
+            <p className="font-heading font-semibold text-sm">Notifications</p>
+            <p className="text-xs text-muted-foreground">
+              {unreadCount} unread
+            </p>
+          </div>
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={markAllRead} className="h-7 text-xs">
+              <CheckCheck className="h-3 w-3 mr-1" /> Mark all read
+            </Button>
+          )}
+        </div>
+        <ScrollArea className="max-h-80">
+          {notifications.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center p-6">
+              No notifications
+            </p>
+          ) : (
+            <div className="divide-y">
+              {notifications.map((n) => {
+                const Icon = iconMap[n.type];
+                const isRead = readIds.has(n.id);
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => markRead(n.id)}
+                    className={`w-full flex items-start gap-3 p-3 text-left hover:bg-muted/50 transition-colors ${
+                      !isRead ? "bg-primary/5" : ""
+                    }`}
+                  >
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${colorMap[n.type]}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium leading-tight">{n.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{n.description}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">{n.time}</p>
+                    </div>
+                    {!isRead && <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
