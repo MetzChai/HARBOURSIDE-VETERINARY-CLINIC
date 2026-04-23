@@ -107,7 +107,7 @@ export default function NotificationBell({ notifications }: Props) {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => markRead(n.id)}
+                    onClick={() => handleClick(n)}
                     className={`w-full flex items-start gap-3 p-3 text-left hover:bg-muted/50 transition-colors ${
                       !isRead ? "bg-primary/5" : ""
                     }`}
