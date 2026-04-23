@@ -92,23 +92,31 @@ export default function Schedule() {
               <DialogHeader><DialogTitle className="font-heading">Schedule Check-up</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-2">
                 <div className="space-y-2"><Label>Pet</Label>
-                  <Select><SelectTrigger><SelectValue placeholder="Select pet" /></SelectTrigger>
+                  <Select value={form.petId} onValueChange={(v) => setForm(f => ({ ...f, petId: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select pet" /></SelectTrigger>
                     <SelectContent>{mockPets.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Date</Label><Input type="date" /></div>
-                  <div className="space-y-2"><Label>Time</Label><Input type="time" /></div>
+                  <div className="space-y-2"><Label>Date</Label>
+                    <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2"><Label>Time</Label>
+                    <Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+                  </div>
                 </div>
                 <div className="space-y-2"><Label>Veterinarian</Label>
-                  <Select><SelectTrigger><SelectValue placeholder="Select vet" /></SelectTrigger>
+                  <Select value={form.vet} onValueChange={(v) => setForm(f => ({ ...f, vet: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select vet" /></SelectTrigger>
                     <SelectContent><SelectItem value="Dr. Rivera">Dr. Rivera</SelectItem><SelectItem value="Dr. Tan">Dr. Tan</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>Reason</Label><Input placeholder="e.g. Annual check-up" /></div>
+                <div className="space-y-2"><Label>Reason</Label>
+                  <Input placeholder="e.g. Annual check-up" value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} />
+                </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-                  <Button onClick={() => setShowAdd(false)}>Schedule</Button>
+                  <Button variant="outline" onClick={() => { setShowAdd(false); setForm(emptyForm); }}>Cancel</Button>
+                  <Button onClick={handleSchedule}>Schedule</Button>
                 </div>
               </div>
             </DialogContent>
