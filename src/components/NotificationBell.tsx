@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export interface NotificationItem {
   id: string;
@@ -11,6 +12,7 @@ export interface NotificationItem {
   description: string;
   type: "vaccine" | "appointment" | "inventory" | "alert";
   time: string;
+  link?: string;
 }
 
 const iconMap = {
