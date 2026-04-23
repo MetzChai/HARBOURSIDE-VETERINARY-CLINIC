@@ -35,6 +35,26 @@ interface Props {
 
 export default function NotificationBell({ notifications }: Props) {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
+
+  const defaultLinkFor = (type: NotificationItem["type"]) => {
+    if (isAdmin) {
+      switch (type) {
+        case "vaccine": return "/admin/vaccinations";
+        case "appointment": return "/admin/schedule";
+        case "inventory": return "/admin/inventory";
+        case "alert": return "/admin";
+      }
+    }
+    switch (type) {
+      case "vaccine": return "/user/vaccinations";
+      case "appointment": return "/user/appointments";
+      default: return "/user";
+    }
+  };
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !readIds.has(n.id)).length,
@@ -42,8 +62,11 @@ export default function NotificationBell({ notifications }: Props) {
   );
 
   const markAllRead = () => setReadIds(new Set(notifications.map((n) => n.id)));
-  const markRead = (id: string) =>
-    setReadIds((prev) => new Set(prev).add(id));
+  const handleClick = (n: NotificationItem) => {
+    setReadIds((prev) => new Set(prev).add(n.id));
+    setOpen(false);
+    navigate(n.link ?? defaultLinkFor(n.type));
+  };
 
   return (
     <Popover>
