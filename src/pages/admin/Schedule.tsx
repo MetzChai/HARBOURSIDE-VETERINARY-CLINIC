@@ -23,9 +23,39 @@ export default function Schedule() {
   const [showAdd, setShowAdd] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
 
+  const emptyForm = { petId: "", date: "", time: "", vet: "", reason: "" };
+  const [form, setForm] = useState(emptyForm);
+
   const updateStatus = (id: string, status: Status) => {
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     toast({ title: "Status updated", description: `Appointment marked as ${status}.` });
+  };
+
+  const handleSchedule = () => {
+    if (!form.petId || !form.date || !form.time || !form.vet || !form.reason.trim()) {
+      toast({ title: "Missing info", description: "Please fill in all fields.", variant: "destructive" });
+      return;
+    }
+    const pet = mockPets.find(p => p.id === form.petId);
+    if (!pet) return;
+    const ownerName =
+      mockAppointments.find(a => a.petId === pet.id)?.ownerName ?? "Owner";
+
+    const newAppt: Appointment = {
+      id: `apt-${Date.now()}`,
+      petId: pet.id,
+      petName: pet.name,
+      ownerName,
+      date: form.date,
+      time: form.time,
+      vet: form.vet,
+      reason: form.reason.trim(),
+      status: "Scheduled",
+    };
+    setAppointments(prev => [newAppt, ...prev]);
+    toast({ title: "Appointment scheduled", description: `${pet.name} on ${form.date} at ${form.time}.` });
+    setForm(emptyForm);
+    setShowAdd(false);
   };
 
   const handlePrint = () => {
