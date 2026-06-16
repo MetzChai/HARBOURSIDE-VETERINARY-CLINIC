@@ -156,8 +156,8 @@ export default function LoginPage() {
                   <p className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 text-center font-medium">{error}</p>
                 )}
 
-                <Button type="submit" className="w-full h-11 text-sm font-semibold">
-                  Login
+                <Button type="submit" className="w-full h-11 text-sm font-semibold" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Login"}
                 </Button>
 
                 <div className="text-left">
@@ -185,6 +185,7 @@ export default function LoginPage() {
                 <Button
                   type="button"
                   variant="outline"
+                  onClick={handleGoogle}
                   className="w-full h-11 text-sm font-medium gap-3"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -200,9 +201,9 @@ export default function LoginPage() {
           </Card>
 
           <div className="mt-6 bg-muted/50 rounded-xl p-4 text-xs text-muted-foreground space-y-1.5">
-            <p className="font-semibold text-foreground/70 mb-2">Demo Credentials</p>
-            <p><span className="inline-block w-12 font-medium text-foreground/60">Admin</span> admin@harbourside.com / admin123</p>
-            <p><span className="inline-block w-12 font-medium text-foreground/60">User</span> user@harbourside.com / user123</p>
+            <p className="font-semibold text-foreground/70 mb-2">Getting started</p>
+            <p>Staff: sign up with an <span className="font-medium text-foreground/70">@harbourside.com</span> email for admin access.</p>
+            <p>Pet owners: sign up with any email to access the owner portal.</p>
           </div>
         </div>
       </div>
