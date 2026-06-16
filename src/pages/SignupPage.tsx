@@ -5,13 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock, PawPrint, Heart, Stethoscope, User, Phone, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, PawPrint, Heart, Stethoscope, User, Phone, ArrowLeft, Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function SignupPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -21,7 +23,7 @@ export default function SignupPage() {
   });
   const [error, setError] = useState("");
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     const { fullName, email, contact, password, confirmPassword } = form;
@@ -41,11 +43,31 @@ export default function SignupPage() {
       setError("Passwords do not match.");
       return;
     }
+    setLoading(true);
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+        data: { full_name: fullName, contact },
+      },
+    });
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+    // Save contact on the owner record if we have a session
+    if (data.session) {
+      await supabase.from("owners").update({ contact }).eq("user_id", data.user!.id);
+    }
     toast({
       title: "Account created",
-      description: `Welcome, ${fullName}! You can now sign in.`,
+      description: data.session
+        ? `Welcome, ${fullName}!`
+        : `Welcome, ${fullName}! Please check your email to confirm, then sign in.`,
     });
-    navigate("/login");
+    navigate(data.session ? "/user" : "/login");
   };
 
   return (
