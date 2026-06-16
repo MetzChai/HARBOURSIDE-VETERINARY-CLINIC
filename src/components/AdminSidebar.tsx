@@ -1,6 +1,7 @@
-import { PawPrint, Users, Calendar, Syringe, ClipboardList, Heart, Package, FileText, Bell, LogOut, LayoutDashboard } from "lucide-react";
+import { PawPrint, Users, Calendar, Syringe, ClipboardList, Heart, Package, FileText, Bell, LogOut, LayoutDashboard, Bug, Receipt, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.png";
 import {
   Sidebar,
