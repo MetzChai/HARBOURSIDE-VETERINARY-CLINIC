@@ -4,25 +4,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Eye, EyeOff, Mail, Lock, PawPrint, Heart, Stethoscope } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, PawPrint, Heart, Stethoscope, Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === "admin@harbourside.com" && password === "admin123") {
-      navigate("/admin");
-    } else if (email === "user@harbourside.com" && password === "user123") {
-      navigate("/user");
-    } else {
-      setError("Invalid email or password.");
+    setError("");
+    setLoading(true);
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError || !data.user) {
+      setError(signInError?.message ?? "Invalid email or password.");
+      setLoading(false);
+      return;
     }
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id);
+    const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+    navigate(isAdmin ? "/admin" : "/user");
+  };
+
+  const handleGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
   };
 
   return (
