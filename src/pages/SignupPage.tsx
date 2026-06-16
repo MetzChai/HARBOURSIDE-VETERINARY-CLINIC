@@ -184,8 +184,8 @@ export default function SignupPage() {
                   <p className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 text-center font-medium">{error}</p>
                 )}
 
-                <Button type="submit" className="w-full h-11 text-sm font-semibold">
-                  Create Account
+                <Button type="submit" className="w-full h-11 text-sm font-semibold" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}
                 </Button>
 
                 <p className="text-sm text-center text-muted-foreground">
