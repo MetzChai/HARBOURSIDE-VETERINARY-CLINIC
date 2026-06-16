@@ -86,13 +86,12 @@ export function AdminSidebar() {
       <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <NavLink to="/login" className="text-sidebar-foreground/50 hover:text-destructive transition-colors">
-                <LogOut className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>Logout</span>}
-              </NavLink>
+            <SidebarMenuButton onClick={handleLogout} className="text-sidebar-foreground/70 hover:text-sidebar-accent-foreground">
+              <LogOut className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>Logout</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
+
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
