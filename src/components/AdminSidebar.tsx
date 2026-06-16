@@ -22,9 +22,12 @@ const mainItems = [
   { title: "Manage Pets", url: "/admin/pets", icon: PawPrint },
   { title: "Manage Owners", url: "/admin/owners", icon: Users },
   { title: "Vaccinations", url: "/admin/vaccinations", icon: Syringe },
+  { title: "Deworming", url: "/admin/dewormings", icon: Bug },
   { title: "Schedule", url: "/admin/schedule", icon: Calendar },
   { title: "Care History", url: "/admin/care-history", icon: Heart },
   { title: "Inventory", url: "/admin/inventory", icon: Package },
+  { title: "Lab & Transactions", url: "/admin/transactions", icon: Receipt },
+  { title: "Text Messages", url: "/admin/messages", icon: MessageSquare },
   { title: "Reports", url: "/admin/reports", icon: FileText },
   { title: "Reminders", url: "/admin/reminders", icon: Bell },
 ];
@@ -33,6 +36,11 @@ export function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const handleLogout = async () => { await signOut(); navigate("/login"); };
+
+
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
