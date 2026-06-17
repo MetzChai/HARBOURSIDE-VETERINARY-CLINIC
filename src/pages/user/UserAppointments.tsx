@@ -1,15 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
-import { mockPets, mockAppointments } from "@/lib/mock-data";
-
-const USER_OWNER_ID = "o1";
+import { useMyAppointments } from "@/hooks/useOwnerData";
 
 export default function UserAppointments() {
-  const userPets = mockPets.filter(p => p.ownerId === USER_OWNER_ID);
-  const userAppointments = mockAppointments.filter(a => userPets.some(p => p.name === a.petName));
+  const { data: appointments = [] } = useMyAppointments();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -34,14 +31,17 @@ export default function UserAppointments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {userAppointments.map(a => (
+              {appointments.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No appointments yet.</TableCell></TableRow>
+              )}
+              {appointments.map((a: any) => (
                 <TableRow key={a.id}>
-                  <TableCell className="font-medium">{a.petName}</TableCell>
+                  <TableCell className="font-medium">{a.pets?.name}</TableCell>
                   <TableCell>{a.date}</TableCell>
                   <TableCell>{a.time}</TableCell>
                   <TableCell>{a.vet}</TableCell>
                   <TableCell>{a.reason}</TableCell>
-                  <TableCell><Badge variant={a.status === "Completed" ? "default" : "secondary"}>{a.status}</Badge></TableCell>
+                  <TableCell><Badge variant={a.status === "completed" ? "default" : "secondary"}>{a.status}</Badge></TableCell>
                 </TableRow>
               ))}
             </TableBody>

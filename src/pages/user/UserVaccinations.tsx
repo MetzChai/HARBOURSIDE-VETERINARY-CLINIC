@@ -1,13 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { mockPets, mockVaccinations } from "@/lib/mock-data";
-
-const USER_OWNER_ID = "o1";
+import { useMyVaccinations } from "@/hooks/useOwnerData";
 
 export default function UserVaccinations() {
-  const userPets = mockPets.filter(p => p.ownerId === USER_OWNER_ID);
-  const userVaccinations = mockVaccinations.filter(v => userPets.some(p => p.id === v.petId));
+  const { data: vaccinations = [] } = useMyVaccinations();
+  const today = new Date();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -28,14 +26,17 @@ export default function UserVaccinations() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {userVaccinations.map(v => {
-                const isDue = new Date(v.nextDue) <= new Date("2026-04-01");
+              {vaccinations.length === 0 && (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No vaccination records yet.</TableCell></TableRow>
+              )}
+              {vaccinations.map((v: any) => {
+                const isDue = v.next_due && new Date(v.next_due) <= today;
                 return (
                   <TableRow key={v.id}>
-                    <TableCell className="font-medium">{v.petName}</TableCell>
-                    <TableCell>{v.vaccineType}</TableCell>
-                    <TableCell>{v.dateGiven}</TableCell>
-                    <TableCell>{v.nextDue}</TableCell>
+                    <TableCell className="font-medium">{v.pets?.name}</TableCell>
+                    <TableCell>{v.vaccine_type}</TableCell>
+                    <TableCell>{v.date_given}</TableCell>
+                    <TableCell>{v.next_due}</TableCell>
                     <TableCell>
                       <Badge variant={isDue ? "destructive" : "default"}>
                         {isDue ? "Due" : "Up to date"}
