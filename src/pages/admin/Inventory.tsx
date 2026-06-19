@@ -53,7 +53,7 @@ export default function Inventory() {
   const saveItem = async () => {
     if (!itemForm.name.trim()) { toast.error("Item name is required"); return; }
     setSaving(true);
-    const payload = {
+    const payload: any = {
       name: itemForm.name.trim(),
       brand: itemForm.brand.trim() || null,
       dosage: itemForm.dosage.trim() || null,
