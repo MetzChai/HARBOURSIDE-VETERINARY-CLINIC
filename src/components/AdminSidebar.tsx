@@ -27,7 +27,7 @@ const mainItems = [
   { title: "Care History", url: "/admin/care-history", icon: Heart },
   { title: "Inventory", url: "/admin/inventory", icon: Package },
   { title: "Lab & Transactions", url: "/admin/transactions", icon: Receipt },
-  { title: "Text Messages", url: "/admin/messages", icon: MessageSquare },
+  { title: "Communications", url: "/admin/messages", icon: MessageSquare },
   { title: "Reports", url: "/admin/reports", icon: FileText },
   { title: "Reminders", url: "/admin/reminders", icon: Bell },
 ];
