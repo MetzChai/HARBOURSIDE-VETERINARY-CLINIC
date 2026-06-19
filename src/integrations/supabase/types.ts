@@ -356,30 +356,39 @@ export type Database = {
       messages: {
         Row: {
           body: string
+          channel: string
           created_at: string
+          email: string | null
           id: string
           owner_id: string | null
           phone: string | null
           sent_at: string
           status: string
+          subject: string | null
         }
         Insert: {
           body: string
+          channel?: string
           created_at?: string
+          email?: string | null
           id?: string
           owner_id?: string | null
           phone?: string | null
           sent_at?: string
           status?: string
+          subject?: string | null
         }
         Update: {
           body?: string
+          channel?: string
           created_at?: string
+          email?: string | null
           id?: string
           owner_id?: string | null
           phone?: string | null
           sent_at?: string
           status?: string
+          subject?: string | null
         }
         Relationships: [
           {
