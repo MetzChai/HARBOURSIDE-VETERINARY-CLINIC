@@ -91,7 +91,7 @@ export default function Inventory() {
       expiration_date: batch.expiration_date || null,
       reason: batch.reason.trim() || null,
       date: new Date().toISOString().slice(0, 10),
-    });
+    } as any);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`Stock ${batch.type === "in" ? "added" : "released"}: ${qty} ${item?.unit ?? ""} of ${item?.name ?? ""}`);
