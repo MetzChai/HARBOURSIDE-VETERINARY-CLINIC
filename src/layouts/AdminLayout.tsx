@@ -41,7 +41,7 @@ export default function AdminLayout() {
   const in30 = new Date();
   in30.setDate(in30.getDate() + 30);
   const vaccinesDue = vaccinations.filter((v: any) => v.next_due && new Date(v.next_due) <= in30);
-  const inventoryAlerts = inventory.filter((i: any) => (i.quantity ?? 0) <= (i.low_stock_threshold ?? 5));
+  const inventoryAlerts = inventory.filter((i: any) => (i.quantity ?? 0) <= 5);
 
   const notifications: NotificationItem[] = [
     ...vaccinesDue.map((v: any) => ({
