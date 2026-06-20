@@ -1,35 +1,43 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { UserSidebar } from "@/components/UserSidebar";
 import { Outlet } from "react-router-dom";
-import { mockPets, mockVaccinations, mockAppointments, getOwnerById } from "@/lib/mock-data";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import NotificationBell, { NotificationItem } from "@/components/NotificationBell";
-
-const USER_OWNER_ID = "o1";
+import { useMyOwner, useMyPets, useMyAppointments, useMyVaccinations } from "@/hooks/useOwnerData";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function UserLayout() {
-  const owner = getOwnerById(USER_OWNER_ID);
-  const userPets = mockPets.filter(p => p.ownerId === USER_OWNER_ID);
-  const userVaccinations = mockVaccinations.filter(v => userPets.some(p => p.id === v.petId));
-  const vaccinesDue = userVaccinations.filter(v => new Date(v.nextDue) <= new Date("2026-04-01"));
-  const userAppts = mockAppointments.filter(a => userPets.some(p => p.name === a.petName) && a.status === "Scheduled");
+  const { user } = useAuth();
+  const { data: owner } = useMyOwner();
+  const { data: pets = [] } = useMyPets();
+  const { data: appointments = [] } = useMyAppointments();
+  const { data: vaccinations = [] } = useMyVaccinations();
+
+  const today = new Date();
+  const in30 = new Date();
+  in30.setDate(today.getDate() + 30);
+
+  const vaccinesDue = vaccinations.filter((v: any) => v.next_due && new Date(v.next_due) <= in30);
+  const upcoming = appointments.filter((a: any) => (a.status ?? "").toLowerCase() === "scheduled");
 
   const notifications: NotificationItem[] = [
-    ...vaccinesDue.map(v => ({
+    ...vaccinesDue.map((v: any) => ({
       id: `vac-${v.id}`,
-      title: `${v.petName}'s ${v.vaccineType} vaccine due`,
-      description: `Schedule a visit by ${v.nextDue}`,
+      title: `${v.pets?.name ?? "Pet"}'s ${v.vaccine_type} vaccine due`,
+      description: `Schedule a visit by ${v.next_due}`,
       type: "vaccine" as const,
-      time: v.nextDue,
+      time: v.next_due,
     })),
-    ...userAppts.map(a => ({
+    ...upcoming.map((a: any) => ({
       id: `apt-${a.id}`,
-      title: `Upcoming: ${a.petName}`,
-      description: `${a.reason} with ${a.vet} • ${a.date} at ${a.time}`,
+      title: `Upcoming: ${a.pets?.name ?? "Pet"}`,
+      description: `${a.reason ?? "Visit"} • ${a.date} at ${a.time}`,
       type: "appointment" as const,
       time: a.date,
     })),
   ];
+
+  const displayName = owner?.name ?? user?.email ?? "Pet Owner";
 
   return (
     <SidebarProvider>
@@ -45,10 +53,10 @@ export default function UserLayout() {
               <NotificationBell notifications={notifications} />
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary">{owner?.name[0]}</span>
+                  <span className="text-xs font-bold text-primary">{displayName[0]?.toUpperCase()}</span>
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium leading-none">{owner?.name}</p>
+                  <p className="text-sm font-medium leading-none">{displayName}</p>
                   <p className="text-xs text-muted-foreground">Pet Owner</p>
                 </div>
               </div>
