@@ -26,10 +26,16 @@ export default function Schedule() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
-  const emptyForm = { pet_id: "", date: "", time: "", vet: "", reason: "", type: "scheduled" };
+  const emptyForm = { pet_id: "", walk_in_pet: "", walk_in_owner: "", date: "", time: "", vet: "", reason: "", type: "scheduled" };
   const [form, setForm] = useState(emptyForm);
 
-  const petName = (id: string) => pets.find((p) => p.id === id)?.name ?? "—";
+  const isWalkIn = form.type === "walk_in";
+
+  const petName = (a: any) => {
+    if (a.pet_id) return pets.find((p) => p.id === a.pet_id)?.name ?? "—";
+    if (a.notes?.startsWith("Walk-in pet: ")) return a.notes.replace("Walk-in pet: ", "").split(" | ")[0];
+    return "Walk-in";
+  };
   const petOwner = (id: string) => pets.find((p) => p.id === id)?.owner_id ?? null;
 
   // Slots taken for the date currently selected in the form
