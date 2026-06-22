@@ -58,28 +58,35 @@ export default function Schedule() {
   };
 
   const handleSchedule = async () => {
-    if (!form.pet_id || !form.date || !form.time || !form.vet) {
+    const hasPet = isWalkIn ? (form.pet_id || form.walk_in_pet.trim()) : form.pet_id;
+    if (!hasPet || !form.date || !form.time || !form.vet) {
       toast.error("Please fill in pet, date, time and vet"); return;
     }
     if (takenSlots.has(form.time)) { toast.error("That time slot is already booked"); return; }
     setSaving(true);
+    const walkInNote = isWalkIn && !form.pet_id && form.walk_in_pet.trim()
+      ? `Walk-in pet: ${form.walk_in_pet.trim()}${form.walk_in_owner.trim() ? ` | Owner: ${form.walk_in_owner.trim()}` : ""}`
+      : null;
     const { error } = await supabase.from("appointments").insert({
-      pet_id: form.pet_id,
-      owner_id: petOwner(form.pet_id),
+      pet_id: form.pet_id || null,
+      owner_id: form.pet_id ? petOwner(form.pet_id) : null,
       date: form.date,
       time: form.time,
       vet: form.vet,
       reason: form.reason.trim() || null,
+      notes: walkInNote,
       type: form.type,
       status: "Scheduled",
     } as any);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(`${petName(form.pet_id)} booked on ${form.date} at ${form.time}`);
+    const label = form.pet_id ? (pets.find((p) => p.id === form.pet_id)?.name ?? "Pet") : form.walk_in_pet.trim();
+    toast.success(`${label} booked on ${form.date} at ${form.time}`);
     setForm(emptyForm);
     setShowAdd(false);
     invalidate("appointments");
   };
+
 
   const handlePrint = () => {
     const w = window.open("", "_blank"); if (!w) return;
