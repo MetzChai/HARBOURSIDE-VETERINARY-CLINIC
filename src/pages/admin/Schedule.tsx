@@ -78,9 +78,24 @@ export default function Schedule() {
       type: form.type,
       status: "Scheduled",
     } as any);
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { setSaving(false); toast.error(error.message); return; }
     const label = form.pet_id ? (pets.find((p) => p.id === form.pet_id)?.name ?? "Pet") : form.walk_in_pet.trim();
+
+    // Auto-create a deworming record when the appointment is for deworming
+    const isDeworming = /deworm/i.test(form.reason);
+    if (isDeworming && form.pet_id) {
+      const { error: dwError } = await supabase.from("dewormings").insert({
+        pet_id: form.pet_id,
+        product: "To be administered",
+        date_given: form.date,
+        vet: form.vet,
+        notes: `Auto-created from appointment on ${form.date} at ${form.time}`,
+      } as any);
+      if (dwError) toast.error(`Appointment booked, but deworming record failed: ${dwError.message}`);
+      else { toast.success("Deworming record created"); invalidate("dewormings"); }
+    }
+
+    setSaving(false);
     toast.success(`${label} booked on ${form.date} at ${form.time}`);
     setForm(emptyForm);
     setShowAdd(false);
