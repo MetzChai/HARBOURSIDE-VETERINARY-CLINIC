@@ -118,9 +118,16 @@ export default function Schedule() {
               <div className="space-y-4 pt-2">
                 <div className="space-y-2"><Label>Pet</Label>
                   <Select value={form.pet_id} onValueChange={(v) => setForm((f) => ({ ...f, pet_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select pet" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={isWalkIn ? "Select registered pet (optional)" : "Select pet"} /></SelectTrigger>
                     <SelectContent>{pets.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
+                  {isWalkIn && !form.pet_id && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <Input placeholder="Walk-in pet name" value={form.walk_in_pet} onChange={(e) => setForm((f) => ({ ...f, walk_in_pet: e.target.value }))} />
+                      <Input placeholder="Owner name (optional)" value={form.walk_in_owner} onChange={(e) => setForm((f) => ({ ...f, walk_in_owner: e.target.value }))} />
+                    </div>
+                  )}
+                  {isWalkIn && <p className="text-xs text-muted-foreground">For walk-ins, pick a registered pet or just type the pet's name.</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>Date</Label>
