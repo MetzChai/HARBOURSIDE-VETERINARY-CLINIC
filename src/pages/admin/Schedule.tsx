@@ -97,7 +97,7 @@ export default function Schedule() {
       th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#fdecea;color:#c0392b}</style></head>
       <body><h1>Harbourside Veterinary Clinic</h1><h2>Appointment Schedule</h2>
       <table><tr><th>Pet</th><th>Date</th><th>Time</th><th>Vet</th><th>Reason</th><th>Type</th><th>Status</th></tr>
-      ${appointments.map((a) => `<tr><td>${petName(a.pet_id)}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet ?? "—"}</td><td>${a.reason ?? "—"}</td><td>${a.type}</td><td>${a.status}</td></tr>`).join("")}
+      ${appointments.map((a) => `<tr><td>${petName(a)}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet ?? "—"}</td><td>${a.reason ?? "—"}</td><td>${a.type}</td><td>${a.status}</td></tr>`).join("")}
       </table><br><p style="color:#999;font-size:12px">Generated on ${new Date().toLocaleDateString()}</p></body></html>`);
     w.document.close(); w.print();
   };
@@ -199,7 +199,7 @@ export default function Schedule() {
               <TableBody>
                 {appointments.map((a) => (
                   <TableRow key={a.id}>
-                    <TableCell className="font-medium">{petName(a.pet_id)}</TableCell>
+                    <TableCell className="font-medium">{petName(a)}</TableCell>
                     <TableCell>{formatDate(a.date)}</TableCell>
                     <TableCell>{a.time}</TableCell>
                     <TableCell>{a.vet ?? "—"}</TableCell>
