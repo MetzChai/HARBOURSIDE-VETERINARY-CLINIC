@@ -26,10 +26,16 @@ export default function Schedule() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
-  const emptyForm = { pet_id: "", date: "", time: "", vet: "", reason: "", type: "scheduled" };
+  const emptyForm = { pet_id: "", walk_in_pet: "", walk_in_owner: "", date: "", time: "", vet: "", reason: "", type: "scheduled" };
   const [form, setForm] = useState(emptyForm);
 
-  const petName = (id: string) => pets.find((p) => p.id === id)?.name ?? "—";
+  const isWalkIn = form.type === "walk_in";
+
+  const petName = (a: any) => {
+    if (a.pet_id) return pets.find((p) => p.id === a.pet_id)?.name ?? "—";
+    if (a.notes?.startsWith("Walk-in pet: ")) return a.notes.replace("Walk-in pet: ", "").split(" | ")[0];
+    return "Walk-in";
+  };
   const petOwner = (id: string) => pets.find((p) => p.id === id)?.owner_id ?? null;
 
   // Slots taken for the date currently selected in the form
@@ -52,28 +58,35 @@ export default function Schedule() {
   };
 
   const handleSchedule = async () => {
-    if (!form.pet_id || !form.date || !form.time || !form.vet) {
+    const hasPet = isWalkIn ? (form.pet_id || form.walk_in_pet.trim()) : form.pet_id;
+    if (!hasPet || !form.date || !form.time || !form.vet) {
       toast.error("Please fill in pet, date, time and vet"); return;
     }
     if (takenSlots.has(form.time)) { toast.error("That time slot is already booked"); return; }
     setSaving(true);
+    const walkInNote = isWalkIn && !form.pet_id && form.walk_in_pet.trim()
+      ? `Walk-in pet: ${form.walk_in_pet.trim()}${form.walk_in_owner.trim() ? ` | Owner: ${form.walk_in_owner.trim()}` : ""}`
+      : null;
     const { error } = await supabase.from("appointments").insert({
-      pet_id: form.pet_id,
-      owner_id: petOwner(form.pet_id),
+      pet_id: form.pet_id || null,
+      owner_id: form.pet_id ? petOwner(form.pet_id) : null,
       date: form.date,
       time: form.time,
       vet: form.vet,
       reason: form.reason.trim() || null,
+      notes: walkInNote,
       type: form.type,
       status: "Scheduled",
     } as any);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(`${petName(form.pet_id)} booked on ${form.date} at ${form.time}`);
+    const label = form.pet_id ? (pets.find((p) => p.id === form.pet_id)?.name ?? "Pet") : form.walk_in_pet.trim();
+    toast.success(`${label} booked on ${form.date} at ${form.time}`);
     setForm(emptyForm);
     setShowAdd(false);
     invalidate("appointments");
   };
+
 
   const handlePrint = () => {
     const w = window.open("", "_blank"); if (!w) return;
@@ -84,7 +97,7 @@ export default function Schedule() {
       th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#fdecea;color:#c0392b}</style></head>
       <body><h1>Harbourside Veterinary Clinic</h1><h2>Appointment Schedule</h2>
       <table><tr><th>Pet</th><th>Date</th><th>Time</th><th>Vet</th><th>Reason</th><th>Type</th><th>Status</th></tr>
-      ${appointments.map((a) => `<tr><td>${petName(a.pet_id)}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet ?? "—"}</td><td>${a.reason ?? "—"}</td><td>${a.type}</td><td>${a.status}</td></tr>`).join("")}
+      ${appointments.map((a) => `<tr><td>${petName(a)}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet ?? "—"}</td><td>${a.reason ?? "—"}</td><td>${a.type}</td><td>${a.status}</td></tr>`).join("")}
       </table><br><p style="color:#999;font-size:12px">Generated on ${new Date().toLocaleDateString()}</p></body></html>`);
     w.document.close(); w.print();
   };
@@ -105,9 +118,16 @@ export default function Schedule() {
               <div className="space-y-4 pt-2">
                 <div className="space-y-2"><Label>Pet</Label>
                   <Select value={form.pet_id} onValueChange={(v) => setForm((f) => ({ ...f, pet_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select pet" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={isWalkIn ? "Select registered pet (optional)" : "Select pet"} /></SelectTrigger>
                     <SelectContent>{pets.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
+                  {isWalkIn && !form.pet_id && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <Input placeholder="Walk-in pet name" value={form.walk_in_pet} onChange={(e) => setForm((f) => ({ ...f, walk_in_pet: e.target.value }))} />
+                      <Input placeholder="Owner name (optional)" value={form.walk_in_owner} onChange={(e) => setForm((f) => ({ ...f, walk_in_owner: e.target.value }))} />
+                    </div>
+                  )}
+                  {isWalkIn && <p className="text-xs text-muted-foreground">For walk-ins, pick a registered pet or just type the pet's name.</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>Date</Label>
@@ -186,7 +206,7 @@ export default function Schedule() {
               <TableBody>
                 {appointments.map((a) => (
                   <TableRow key={a.id}>
-                    <TableCell className="font-medium">{petName(a.pet_id)}</TableCell>
+                    <TableCell className="font-medium">{petName(a)}</TableCell>
                     <TableCell>{formatDate(a.date)}</TableCell>
                     <TableCell>{a.time}</TableCell>
                     <TableCell>{a.vet ?? "—"}</TableCell>
