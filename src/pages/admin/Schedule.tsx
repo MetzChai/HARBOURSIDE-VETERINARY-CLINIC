@@ -108,7 +108,7 @@ export default function Schedule() {
           next_due: null,
           vet: form.vet,
           status: "Scheduled",
-          notes: `Auto-created from appointment on ${form.date} at ${form.time}`,
+          notes: `Auto-created from appointment on ${form.date} at ${form.time}${isWalkIn && !form.pet_id && form.walk_in_owner.trim() ? ` | Walk-in owner: ${form.walk_in_owner.trim()}` : ""}`,
         } as any);
         if (dwError) toast.error(`Appointment booked, but deworming record failed: ${dwError.message}`);
         else { toast.success("Deworming record created"); invalidate("dewormings"); invalidate("pets"); }
