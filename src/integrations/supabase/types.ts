@@ -139,6 +139,7 @@ export type Database = {
           notes: string | null
           pet_id: string
           product: string
+          status: string
           updated_at: string
           vet: string | null
         }
@@ -150,6 +151,7 @@ export type Database = {
           notes?: string | null
           pet_id: string
           product: string
+          status?: string
           updated_at?: string
           vet?: string | null
         }
@@ -161,6 +163,7 @@ export type Database = {
           notes?: string | null
           pet_id?: string
           product?: string
+          status?: string
           updated_at?: string
           vet?: string | null
         }
