@@ -83,16 +83,37 @@ export default function Schedule() {
 
     // Auto-create a deworming record when the appointment is for deworming
     const isDeworming = /deworm/i.test(form.reason);
-    if (isDeworming && form.pet_id) {
-      const { error: dwError } = await supabase.from("dewormings").insert({
-        pet_id: form.pet_id,
-        product: "To be administered",
-        date_given: form.date,
-        vet: form.vet,
-        notes: `Auto-created from appointment on ${form.date} at ${form.time}`,
-      } as any);
-      if (dwError) toast.error(`Appointment booked, but deworming record failed: ${dwError.message}`);
-      else { toast.success("Deworming record created"); invalidate("dewormings"); }
+    if (isDeworming) {
+      let dewormPetId = form.pet_id;
+
+      // Walk-in with no registered pet: create a temporary pet entry first
+      if (!dewormPetId && isWalkIn && form.walk_in_pet.trim()) {
+        const { data: tempPet, error: petError } = await supabase
+          .from("pets")
+          .insert({
+            owner_id: "00000000-0000-0000-0000-0000000000aa",
+            name: form.walk_in_pet.trim(),
+            notes: `Temporary walk-in pet${form.walk_in_owner.trim() ? ` — owner: ${form.walk_in_owner.trim()}` : ""}`,
+          } as any)
+          .select("id")
+          .single();
+        if (petError) toast.error(`Walk-in pet entry failed: ${petError.message}`);
+        else dewormPetId = tempPet.id;
+      }
+
+      if (dewormPetId) {
+        const { error: dwError } = await supabase.from("dewormings").insert({
+          pet_id: dewormPetId,
+          product: "To be administered",
+          date_given: form.date,
+          next_due: null,
+          vet: form.vet,
+          status: "Scheduled",
+          notes: `Auto-created from appointment on ${form.date} at ${form.time}`,
+        } as any);
+        if (dwError) toast.error(`Appointment booked, but deworming record failed: ${dwError.message}`);
+        else { toast.success("Deworming record created"); invalidate("dewormings"); invalidate("pets"); }
+      }
     }
 
     setSaving(false);
