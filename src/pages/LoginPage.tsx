@@ -106,7 +106,7 @@ export default function LoginPage() {
             <p className="text-muted-foreground text-sm mt-1">Sign in to your account to continue</p>
           </div>
 
-          <Card className="border-0 shadow-xl shadow-primary/5">
+          <Card className="border border-border shadow-sm">
             <CardContent className="p-6">
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-2">
