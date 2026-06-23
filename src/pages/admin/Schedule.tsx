@@ -93,7 +93,6 @@ export default function Schedule() {
           .insert({
             owner_id: "00000000-0000-0000-0000-0000000000aa",
             name: form.walk_in_pet.trim(),
-            notes: `Temporary walk-in pet${form.walk_in_owner.trim() ? ` — owner: ${form.walk_in_owner.trim()}` : ""}`,
           } as any)
           .select("id")
           .single();
