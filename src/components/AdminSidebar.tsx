@@ -1,8 +1,10 @@
+"use client";
+
 import { PawPrint, Users, Calendar, Syringe, ClipboardList, Heart, Package, FileText, Bell, LogOut, LayoutDashboard, Bug, Receipt, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import logo from "@/assets/logo.png";
+import Image from "next/image";
 import {
   Sidebar,
   SidebarContent,
@@ -35,18 +37,18 @@ const mainItems = [
 export function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { signOut } = useAuth();
-  const handleLogout = async () => { await signOut(); navigate("/login"); };
-
-
+  const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="Harbourside Vet" width={40} height={40} className="rounded-lg" />
+          <Image src="/logo.png" alt="Harbourside Vet" width={40} height={40} className="rounded-lg" />
           {!collapsed && (
             <div>
               <h2 className="text-sm font-bold font-heading text-sidebar-primary-foreground">Harbourside</h2>
@@ -67,7 +69,7 @@ export function AdminSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
-                      to={item.url}
+                      href={item.url}
                       end={item.url === "/admin"}
                       className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
@@ -91,7 +93,6 @@ export function AdminSidebar() {
               {!collapsed && <span>Logout</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
-
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

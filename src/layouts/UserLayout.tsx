@@ -1,12 +1,13 @@
+"use client";
+
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { UserSidebar } from "@/components/UserSidebar";
-import { Outlet } from "react-router-dom";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import NotificationBell, { NotificationItem } from "@/components/NotificationBell";
 import { useMyOwner, useMyPets, useMyAppointments, useMyVaccinations } from "@/hooks/useOwnerData";
 import { useAuth } from "@/hooks/useAuth";
 
-export default function UserLayout() {
+export default function UserLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { data: owner } = useMyOwner();
   const { data: pets = [] } = useMyPets();
@@ -62,9 +63,7 @@ export default function UserLayout() {
               </div>
             </div>
           </header>
-          <main className="flex-1 overflow-auto bg-muted/30 p-4 md:p-6">
-            <Outlet />
-          </main>
+          <main className="flex-1 overflow-auto bg-muted/30 p-4 md:p-6">{children}</main>
         </div>
       </div>
       <ChatbotWidget />

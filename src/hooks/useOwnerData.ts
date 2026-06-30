@@ -1,21 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db-client";
 import { useAuth } from "@/hooks/useAuth";
 
-// All queries below are automatically scoped to the logged-in user by RLS.
 export function useMyOwner() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["my-owner", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("owners")
-        .select("*")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      const { data, error } = await db.from("owners").select("*").eq("user_id", user!.id).maybeSingle();
+      if (error) throw new Error(error.message);
+      return data as { name?: string; contact?: string } | null;
     },
   });
 }
@@ -26,12 +21,9 @@ export function useMyPets() {
     queryKey: ["my-pets", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pets")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      const { data, error } = await db.from("pets").select("*").order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown[];
     },
   });
 }
@@ -42,12 +34,12 @@ export function useMyAppointments() {
     queryKey: ["my-appointments", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("appointments")
         .select("*, pets(name)")
         .order("date", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown[];
     },
   });
 }
@@ -58,12 +50,12 @@ export function useMyVaccinations() {
     queryKey: ["my-vaccinations", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("vaccinations")
         .select("*, pets(name)")
         .order("next_due", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown[];
     },
   });
 }
@@ -74,12 +66,12 @@ export function useMyCareRecords() {
     queryKey: ["my-care-records", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("care_records")
         .select("*, pets(name)")
         .order("date", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown[];
     },
   });
 }

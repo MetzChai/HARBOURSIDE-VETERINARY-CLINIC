@@ -1,40 +1,41 @@
+"use client";
+
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
-import { Outlet } from "react-router-dom";
 import NotificationBell, { NotificationItem } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db-client";
 
-export default function AdminLayout() {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   const { data: profile } = useQuery({
     queryKey: ["my-profile", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await db
         .from("profiles")
         .select("full_name, email")
         .eq("id", user!.id)
         .maybeSingle();
-      return data;
+      return data as { full_name?: string; email?: string } | null;
     },
   });
 
   const { data: vaccinations = [] } = useQuery({
     queryKey: ["admin-vac-alerts"],
     queryFn: async () => {
-      const { data } = await supabase.from("vaccinations").select("*, pets(name)");
-      return data ?? [];
+      const { data } = await db.from("vaccinations").select("*, pets(name)");
+      return (data ?? []) as any[];
     },
   });
 
   const { data: inventory = [] } = useQuery({
     queryKey: ["admin-inv-alerts"],
     queryFn: async () => {
-      const { data } = await supabase.from("inventory_items").select("*");
-      return data ?? [];
+      const { data } = await db.from("inventory_items").select("*");
+      return (data ?? []) as any[];
     },
   });
 
@@ -85,9 +86,7 @@ export default function AdminLayout() {
               </div>
             </div>
           </header>
-          <main className="flex-1 overflow-auto bg-muted/30 p-4 md:p-6">
-            <Outlet />
-          </main>
+          <main className="flex-1 overflow-auto bg-muted/30 p-4 md:p-6">{children}</main>
         </div>
       </div>
     </SidebarProvider>

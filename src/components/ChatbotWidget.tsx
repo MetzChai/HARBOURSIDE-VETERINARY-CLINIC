@@ -1,14 +1,13 @@
+"use client";
+
 import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X, Send, PawPrint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 
 type Msg = { role: "user" | "assistant"; content: string };
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 const QUICK_PROMPTS = [
   "When is my pet's next appointment?",
@@ -42,16 +41,15 @@ export default function ChatbotWidget() {
     let assistantSoFar = "";
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Please sign in to chat with PawBot.");
-      }
-      const resp = await fetch(CHAT_URL, {
+      const sessionRes = await fetch("/api/auth/session", { credentials: "include" });
+      if (!sessionRes.ok) throw new Error("Please sign in to chat with PawBot.");
+      const sessionJson = await sessionRes.json();
+      if (!sessionJson.session) throw new Error("Please sign in to chat with PawBot.");
+
+      const resp = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ messages: allMessages }),
       });
 
@@ -86,7 +84,7 @@ export default function ChatbotWidget() {
               setMessages((prev) => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant" && prev.length > allMessages.length) {
-                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+                  return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
                 }
                 return [...prev, { role: "assistant", content: assistantSoFar }];
               });
@@ -109,7 +107,6 @@ export default function ChatbotWidget() {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 no-print">
-      {/* Toggle button */}
       {!open && (
         <Button
           onClick={() => setOpen(true)}
@@ -120,10 +117,8 @@ export default function ChatbotWidget() {
         </Button>
       )}
 
-      {/* Chat panel */}
       {open && (
         <div className="w-[360px] h-[500px] rounded-2xl border bg-card shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground">
             <div className="flex items-center gap-2">
               <PawPrint className="h-5 w-5" />
@@ -134,7 +129,6 @@ export default function ChatbotWidget() {
             </Button>
           </div>
 
-          {/* Messages */}
           <ScrollArea className="flex-1 p-3" ref={scrollRef}>
             <div className="space-y-3">
               {messages.map((msg, i) => (
@@ -160,7 +154,6 @@ export default function ChatbotWidget() {
               )}
             </div>
 
-            {/* Quick prompts (show only at start) */}
             {messages.length <= 1 && (
               <div className="mt-3 space-y-1.5">
                 {QUICK_PROMPTS.map((q) => (
@@ -176,7 +169,6 @@ export default function ChatbotWidget() {
             )}
           </ScrollArea>
 
-          {/* Input */}
           <div className="p-3 border-t flex gap-2">
             <Input
               value={input}

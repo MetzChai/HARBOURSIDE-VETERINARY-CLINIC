@@ -1,10 +1,12 @@
+"use client";
+
 import { Bell, Syringe, Calendar, AlertTriangle, Package, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useRouter, usePathname } from "next/navigation";
 
 export interface NotificationItem {
   id: string;
@@ -36,9 +38,9 @@ interface Props {
 export default function NotificationBell({ notifications }: Props) {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isAdmin = location.pathname.startsWith("/admin");
+  const router = useRouter();
+  const pathname = usePathname();
+  const isAdmin = pathname.startsWith("/admin");
 
   const defaultLinkFor = (type: NotificationItem["type"]) => {
     if (isAdmin) {
@@ -65,7 +67,7 @@ export default function NotificationBell({ notifications }: Props) {
   const handleClick = (n: NotificationItem) => {
     setReadIds((prev) => new Set(prev).add(n.id));
     setOpen(false);
-    navigate(n.link ?? defaultLinkFor(n.type));
+    router.push(n.link ?? defaultLinkFor(n.type));
   };
 
   return (

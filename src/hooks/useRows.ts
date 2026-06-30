@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db-client";
 
-// Generic fetch hook for a table with optional ordering.
 export function useRows<T = any>(
   table: string,
   opts?: { orderBy?: string; ascending?: boolean; select?: string }
@@ -10,10 +9,10 @@ export function useRows<T = any>(
   const query = useQuery({
     queryKey: [table, select, opts?.orderBy, opts?.ascending],
     queryFn: async () => {
-      let q = supabase.from(table as any).select(select);
+      let q = db.from(table).select(select);
       if (opts?.orderBy) q = q.order(opts.orderBy, { ascending: opts.ascending ?? true });
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       return (data ?? []) as T[];
     },
   });

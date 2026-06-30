@@ -1,8 +1,9 @@
+"use client";
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Upload, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface ImageUploadProps {
@@ -44,27 +45,26 @@ export default function ImageUpload({
       return;
     }
 
-    // Show local preview immediately
     const localUrl = URL.createObjectURL(file);
     setPreview(localUrl);
 
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop();
-      const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", folder);
 
-      const { error } = await supabase.storage
-        .from("pet-images")
-        .upload(fileName, file, { upsert: true });
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
 
-      if (error) throw error;
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Upload failed");
 
-      const { data: urlData } = supabase.storage
-        .from("pet-images")
-        .getPublicUrl(fileName);
-
-      setPreview(urlData.publicUrl);
-      onImageUploaded(urlData.publicUrl);
+      setPreview(json.url);
+      onImageUploaded(json.url);
       toast.success("Image uploaded!");
     } catch (err: any) {
       toast.error("Upload failed: " + (err.message || "Unknown error"));
