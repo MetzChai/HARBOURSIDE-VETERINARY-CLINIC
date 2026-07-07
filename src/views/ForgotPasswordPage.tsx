@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, ArrowLeft, CheckCircle2, KeyRound } from "lucide-react";
+import { Mail, ArrowLeft, CheckCircle2, KeyRound, PawPrint } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -34,7 +33,9 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-6 py-12">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="flex flex-col items-center mb-8">
-          <Image src="/logo.png" alt="Harbourside Veterinary Clinic" width={64} height={64} className="mb-3" />
+          <div className="bg-primary/10 p-3 rounded-xl mb-4">
+            <PawPrint className="w-8 h-8 text-primary" />
+          </div>
           <h1 className="font-heading text-2xl font-bold text-foreground">Forgot Password</h1>
           <p className="text-muted-foreground text-sm mt-1 text-center">
             {submitted

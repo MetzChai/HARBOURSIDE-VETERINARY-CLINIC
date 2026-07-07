@@ -2,7 +2,6 @@
 
 import { PawPrint, Calendar, Syringe, LogOut, LayoutDashboard } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -41,10 +40,12 @@ export function UserSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <Image src="/logo.png" alt="Harbourside Vet" width={40} height={40} className="rounded-lg" />
+          <div className="h-9 w-9 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
+            <PawPrint className="h-5 w-5 text-sidebar-primary-foreground" />
+          </div>
           {!collapsed && (
             <div>
-              <h2 className="text-sm font-bold font-heading text-sidebar-primary-foreground">Harbourside</h2>
+              <h2 className="text-sm font-bold font-heading text-sidebar-accent-foreground">Harbourside</h2>
               <p className="text-xs text-sidebar-foreground/60">Pet Owner Portal</p>
             </div>
           )}

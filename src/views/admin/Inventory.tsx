@@ -48,7 +48,14 @@ export default function Inventory() {
   const openAddItem = () => { setEditingId(null); setItemForm(emptyItem); setShowItem(true); };
   const openEditItem = (it: any) => {
     setEditingId(it.id);
-    setItemForm({ name: it.name, brand: it.brand ?? "", dosage: it.dosage ?? "", category: it.category, unit: it.unit ?? "pcs", expiration_date: it.expiration_date ?? "" });
+    setItemForm({
+      name: it.name,
+      brand: it.brand ?? "",
+      dosage: it.dosage ?? "",
+      category: it.category,
+      unit: it.unit ?? "pcs",
+      expiration_date: it.expiration_date ?? "",
+    });
     setShowItem(true);
   };
 
@@ -84,7 +91,6 @@ export default function Inventory() {
       toast.error(`Only ${item.quantity} ${item.unit} in stock`); return;
     }
     setSaving(true);
-    // Inserting the transaction auto-adjusts item quantity via DB trigger
     const { error } = await db.from("inventory_transactions").insert({
       item_id: batch.item_id,
       type: batch.type,
@@ -108,9 +114,9 @@ export default function Inventory() {
     const w = window.open("", "_blank"); if (!w) return;
     w.document.write(`
       <html><head><title>${title}</title>
-      <style>body{font-family:Arial,sans-serif;padding:40px}h1{color:#c0392b}
+      <style>body{font-family:Arial,sans-serif;padding:40px}h1{color:#ff2400}
       table{width:100%;border-collapse:collapse;margin-top:16px}
-      th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#fdecea;color:#c0392b}</style></head>
+      th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#fff0ee;color:#ff2400}</style></head>
       <body><h1>Harbourside Veterinary Clinic</h1><h2>${title}</h2>
       <table><tr><th>Item</th><th>Brand</th><th>Dosage</th><th>Category</th><th>Quantity</th><th>Expiration</th><th>Status</th></tr>
       ${list.map((i) => `<tr><td>${i.name}</td><td>${i.brand ?? "—"}</td><td>${i.dosage ?? "—"}</td><td>${i.category}</td><td>${i.quantity} ${i.unit ?? ""}</td><td>${i.expiration_date ? formatDate(i.expiration_date) : "—"}</td><td>${itemStatus(i.quantity, i.expiration_date)}</td></tr>`).join("")}
@@ -125,7 +131,7 @@ export default function Inventory() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold">Inventory</h1>
-          <p className="text-muted-foreground text-sm">Batch stock in/out — quantity adjusts automatically</p>
+          <p className="text-muted-foreground text-sm">Batch stock in/out — also auto-decreases on lab transactions</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => handlePrint("all")}><Printer className="h-4 w-4 mr-1" /> Print</Button>
@@ -228,7 +234,6 @@ export default function Inventory() {
         </TabsContent>
       </Tabs>
 
-      {/* Item dialog */}
       <Dialog open={showItem} onOpenChange={setShowItem}>
         <DialogContent>
           <DialogHeader><DialogTitle className="font-heading">{editingId ? "Edit Item" : "New Item"}</DialogTitle></DialogHeader>
@@ -248,7 +253,7 @@ export default function Inventory() {
               <div className="space-y-2"><Label>Unit</Label><Input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} placeholder="pcs / mL" /></div>
               <div className="space-y-2"><Label>Expiration</Label><Input type="date" value={itemForm.expiration_date} onChange={(e) => setItemForm({ ...itemForm, expiration_date: e.target.value })} /></div>
             </div>
-            {!editingId && <p className="text-xs text-muted-foreground">New items start at 0 stock. Use "Stock In" to add a batch.</p>}
+            {!editingId && <p className="text-xs text-muted-foreground">New items start at 0 stock. Use &quot;Stock In&quot; to add a batch.</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowItem(false)}>Cancel</Button>
@@ -257,7 +262,6 @@ export default function Inventory() {
         </DialogContent>
       </Dialog>
 
-      {/* Batch dialog */}
       <Dialog open={showBatch} onOpenChange={setShowBatch}>
         <DialogContent>
           <DialogHeader><DialogTitle className="font-heading">{batch.type === "in" ? "Stock In (Batch)" : "Stock Out (Batch)"}</DialogTitle></DialogHeader>
@@ -286,4 +290,3 @@ export default function Inventory() {
     </div>
   );
 }
-

@@ -30,9 +30,7 @@ npm install
 npm run db:push
 ```
 
-4. Add your clinic logo at `public/logo.png`.
-
-5. Start the dev server:
+4. Start the dev server:
 
 ```bash
 npm run dev
@@ -40,9 +38,11 @@ npm run dev
 
 ## Accounts
 
-- **Staff (admin):** sign up with an `@harbourside.com` email
-- **Pet owners:** sign up with any other email
+- **Staff (admin):** sign up with an `@harbourside.com` email, or create via Admin → Accounts
+- **Pet owners:** sign up with any other email or use Google login
 
-## Optional
+## Optional environment variables
 
-- `LOVABLE_API_KEY` — enables PawBot AI chat in the owner portal
+- `GEMINI_API_KEY` — enables PawBot AI chat (Google Gemini)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — enables Continue with Google login
+- `NEXT_PUBLIC_APP_URL` — app URL for OAuth redirects (e.g. `http://localhost:3000`)

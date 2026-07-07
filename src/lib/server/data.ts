@@ -295,6 +295,68 @@ export async function registerUser(opts: {
   return { id: user.id, email: user.email, fullName: user.full_name, role: role as "admin" | "owner" };
 }
 
+export async function findOrCreateGoogleUser(opts: {
+  googleId: string;
+  email: string;
+  fullName: string;
+}) {
+  const pool = getPool();
+  const { isAdminEmail } = await import("./auth");
+
+  const { rows: byGoogle } = await pool.query(
+    `SELECT u.id, u.email, u.full_name, ur.role
+     FROM users u
+     LEFT JOIN user_roles ur ON ur.user_id = u.id
+     WHERE u.google_id = $1`,
+    [opts.googleId]
+  );
+
+  if (byGoogle.length) {
+    const u = byGoogle[0] as { id: string; email: string; full_name: string; role: string | null };
+    const role = byGoogle.some((r: { role: string }) => r.role === "admin") ? "admin" : (u.role ?? "owner");
+    return { id: u.id, email: u.email, fullName: u.full_name, role: role as "admin" | "owner" };
+  }
+
+  const { rows: byEmail } = await pool.query(
+    `SELECT u.id, u.email, u.full_name, ur.role
+     FROM users u
+     LEFT JOIN user_roles ur ON ur.user_id = u.id
+     WHERE u.email = $1`,
+    [opts.email]
+  );
+
+  if (byEmail.length) {
+    const u = byEmail[0] as { id: string; email: string; full_name: string; role: string | null };
+    await pool.query(`UPDATE users SET google_id = $1 WHERE id = $2`, [opts.googleId, u.id]);
+    const role = byEmail.some((r: { role: string }) => r.role === "admin") ? "admin" : (u.role ?? "owner");
+    return { id: u.id, email: u.email, fullName: u.full_name, role: role as "admin" | "owner" };
+  }
+
+  const isAdmin = isAdminEmail(opts.email);
+  const role = isAdmin ? "admin" : "owner";
+
+  const { rows: users } = await pool.query(
+    `INSERT INTO users (email, password_hash, full_name, google_id)
+     VALUES ($1, NULL, $2, $3)
+     RETURNING id, email, full_name`,
+    [opts.email, opts.fullName, opts.googleId]
+  );
+  const user = users[0] as { id: string; email: string; full_name: string };
+
+  await pool.query(`INSERT INTO profiles (id, full_name, email) VALUES ($1, $2, $3)`, [
+    user.id, opts.fullName, opts.email,
+  ]);
+  await pool.query(`INSERT INTO user_roles (user_id, role) VALUES ($1, $2::app_role)`, [user.id, role]);
+
+  if (!isAdmin) {
+    await pool.query(`INSERT INTO owners (user_id, name, email) VALUES ($1, $2, $3)`, [
+      user.id, opts.fullName, opts.email,
+    ]);
+  }
+
+  return { id: user.id, email: user.email, fullName: user.full_name, role: role as "admin" | "owner" };
+}
+
 export async function loginUser(email: string, password: string) {
   const pool = getPool();
   const { verifyPassword } = await import("./auth");
@@ -313,11 +375,11 @@ export async function loginUser(email: string, password: string) {
     id: string;
     email: string;
     full_name: string;
-    password_hash: string;
+    password_hash: string | null;
     role: "admin" | "owner" | null;
   };
 
-  const valid = await verifyPassword(password, user.password_hash);
+  const valid = user.password_hash ? await verifyPassword(password, user.password_hash) : false;
   if (!valid) return null;
 
   const role = rows.some((r: { role: string }) => r.role === "admin") ? "admin" : (user.role ?? "owner");

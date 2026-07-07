@@ -1,10 +1,9 @@
 "use client";
 
-import { PawPrint, Users, Calendar, Syringe, ClipboardList, Heart, Package, FileText, Bell, LogOut, LayoutDashboard, Bug, Receipt, MessageSquare } from "lucide-react";
+import { PawPrint, Users, Calendar, Syringe, ClipboardList, Heart, Package, FileText, LogOut, LayoutDashboard, Bug, Receipt, MessageSquare, UserCog } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import Image from "next/image";
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +22,7 @@ const mainItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Manage Pets", url: "/admin/pets", icon: PawPrint },
   { title: "Manage Owners", url: "/admin/owners", icon: Users },
+  { title: "Accounts", url: "/admin/accounts", icon: UserCog },
   { title: "Vaccinations", url: "/admin/vaccinations", icon: Syringe },
   { title: "Deworming", url: "/admin/dewormings", icon: Bug },
   { title: "Schedule", url: "/admin/schedule", icon: Calendar },
@@ -31,7 +31,6 @@ const mainItems = [
   { title: "Lab & Transactions", url: "/admin/transactions", icon: Receipt },
   { title: "Communications", url: "/admin/messages", icon: MessageSquare },
   { title: "Reports", url: "/admin/reports", icon: FileText },
-  { title: "Reminders", url: "/admin/reminders", icon: Bell },
 ];
 
 export function AdminSidebar() {
@@ -48,10 +47,12 @@ export function AdminSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <Image src="/logo.png" alt="Harbourside Vet" width={40} height={40} className="rounded-lg" />
+          <div className="h-9 w-9 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
+            <PawPrint className="h-5 w-5 text-sidebar-primary-foreground" />
+          </div>
           {!collapsed && (
             <div>
-              <h2 className="text-sm font-bold font-heading text-sidebar-primary-foreground">Harbourside</h2>
+              <h2 className="text-sm font-bold font-heading text-sidebar-accent-foreground">Harbourside</h2>
               <p className="text-xs text-sidebar-foreground/60">Veterinary Clinic</p>
             </div>
           )}

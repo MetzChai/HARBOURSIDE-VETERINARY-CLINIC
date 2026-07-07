@@ -23,7 +23,8 @@ export default function LabTransactions() {
   const { data: txns = [], isLoading } = useRows<any>("lab_transactions", { orderBy: "date", ascending: false });
   const { data: pets = [] } = useRows<any>("pets", { orderBy: "name" });
   const { data: owners = [] } = useRows<any>("owners", { orderBy: "name" });
-  const { data: items = [] } = useRows<any>("lab_transaction_items");
+  const { data: inventoryItems = [] } = useRows<any>("inventory_items", { orderBy: "name" });
+  const { data: txnItems = [] } = useRows<any>("lab_transaction_items");
   const invalidate = useInvalidate();
 
   const [search, setSearch] = useState("");
@@ -35,7 +36,7 @@ export default function LabTransactions() {
 
   const petName = (id: string) => pets.find((p) => p.id === id)?.name ?? "—";
   const ownerName = (id: string) => owners.find((o) => o.id === id)?.name ?? "—";
-  const itemsFor = (tid: string) => items.filter((i) => i.transaction_id === tid);
+  const itemsFor = (tid: string) => txnItems.filter((i) => i.transaction_id === tid);
 
   const filtered = txns.filter((t) =>
     petName(t.pet_id).toLowerCase().includes(search.toLowerCase()) ||
@@ -69,14 +70,38 @@ export default function LabTransactions() {
         line_total: (Number(l.quantity) || 0) * (Number(l.unit_price) || 0),
       }))
     );
+    if (iErr) { setSaving(false); toast.error(iErr.message); return; }
+
+    // Auto-decrease inventory for matching items
+    let stockAdjusted = 0;
+    for (const line of valid) {
+      const desc = line.description.trim().toLowerCase();
+      const match = inventoryItems.find((inv) => inv.name.toLowerCase() === desc || inv.name.toLowerCase().includes(desc) || desc.includes(inv.name.toLowerCase()));
+      if (match) {
+        const qty = Number(line.quantity) || 1;
+        const { error: stockErr } = await db.from("inventory_transactions").insert({
+          item_id: match.id,
+          type: "out",
+          quantity: qty,
+          reason: `Lab transaction #${txn.id.slice(0, 8)}`,
+          pet_id: header.pet_id || null,
+          date: header.date || new Date().toISOString().slice(0, 10),
+        } as any);
+        if (!stockErr) stockAdjusted++;
+      }
+    }
+
     setSaving(false);
-    if (iErr) { toast.error(iErr.message); return; }
-    toast.success("Transaction recorded");
+    toast.success(stockAdjusted > 0
+      ? `Transaction recorded — ${stockAdjusted} inventory item(s) deducted`
+      : "Transaction recorded");
     setOpen(false);
     setHeader({ pet_id: "", owner_id: "", date: "", vet: "", status: "Unpaid" });
     setLines([{ description: "", quantity: 1, unit_price: 0 }]);
     invalidate("lab_transactions");
     invalidate("lab_transaction_items");
+    invalidate("inventory_items");
+    invalidate("inventory_transactions");
   };
 
   const printTxn = (t: any) => {
@@ -130,9 +155,18 @@ export default function LabTransactions() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Line Items (per item)</Label>
+                <Label>Line Items</Label>
+                <p className="text-xs text-muted-foreground">Use inventory item names to auto-deduct stock</p>
                 {lines.map((l, i) => (
                   <div key={i} className="flex gap-2 items-center">
+                    <Select value="" onValueChange={(v) => updateLine(i, { description: v })}>
+                      <SelectTrigger className="w-36 shrink-0"><SelectValue placeholder="Inventory" /></SelectTrigger>
+                      <SelectContent>
+                        {inventoryItems.map((inv) => (
+                          <SelectItem key={inv.id} value={inv.name}>{inv.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Input className="flex-1" placeholder="Description" value={l.description} onChange={(e) => updateLine(i, { description: e.target.value })} />
                     <Input className="w-16" type="number" min={1} value={l.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} />
                     <Input className="w-24" type="number" min={0} placeholder="Price" value={l.unit_price} onChange={(e) => updateLine(i, { unit_price: Number(e.target.value) })} />
