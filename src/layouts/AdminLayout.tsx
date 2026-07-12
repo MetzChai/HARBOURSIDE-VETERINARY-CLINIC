@@ -2,13 +2,16 @@
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
-import NotificationBell, { NotificationItem } from "@/components/NotificationBell";
+import NotificationBell from "@/components/NotificationBell";
+import HeaderProfileLink from "@/components/HeaderProfileLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { db } from "@/lib/db-client";
+import { useAdminNotifications } from "@/hooks/useNotifications";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { notifications, isLoading } = useAdminNotifications();
 
   const { data: profile } = useQuery({
     queryKey: ["my-profile", user?.id],
@@ -16,50 +19,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     queryFn: async () => {
       const { data } = await db
         .from("profiles")
-        .select("full_name, email")
+        .select("full_name, email, avatar_url")
         .eq("id", user!.id)
         .maybeSingle();
-      return data as { full_name?: string; email?: string } | null;
+      return data as { full_name?: string; email?: string; avatar_url?: string } | null;
     },
   });
-
-  const { data: vaccinations = [] } = useQuery({
-    queryKey: ["admin-vac-alerts"],
-    queryFn: async () => {
-      const { data } = await db.from("vaccinations").select("*, pets(name)");
-      return (data ?? []) as any[];
-    },
-  });
-
-  const { data: inventory = [] } = useQuery({
-    queryKey: ["admin-inv-alerts"],
-    queryFn: async () => {
-      const { data } = await db.from("inventory_items").select("*");
-      return (data ?? []) as any[];
-    },
-  });
-
-  const in30 = new Date();
-  in30.setDate(in30.getDate() + 30);
-  const vaccinesDue = vaccinations.filter((v: any) => v.next_due && new Date(v.next_due) <= in30);
-  const inventoryAlerts = inventory.filter((i: any) => (i.quantity ?? 0) <= 5);
-
-  const notifications: NotificationItem[] = [
-    ...vaccinesDue.map((v: any) => ({
-      id: `vac-${v.id}`,
-      title: `${v.pets?.name ?? "Pet"} — ${v.vaccine_type} due`,
-      description: `Next dose scheduled for ${v.next_due}`,
-      type: "vaccine" as const,
-      time: v.next_due,
-    })),
-    ...inventoryAlerts.map((i: any) => ({
-      id: `inv-${i.id}`,
-      title: `${i.name}: Low stock`,
-      description: `${i.quantity} units remaining`,
-      type: "inventory" as const,
-      time: i.expiration_date ?? "",
-    })),
-  ];
 
   const displayName = profile?.full_name ?? user?.email ?? "Staff";
 
@@ -74,16 +39,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className="text-sm text-muted-foreground font-medium">Admin Panel</span>
             </div>
             <div className="flex items-center gap-3">
-              <NotificationBell notifications={notifications} />
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary">{displayName[0]?.toUpperCase()}</span>
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium leading-none">{displayName}</p>
-                  <p className="text-xs text-muted-foreground">Veterinary Staff</p>
-                </div>
-              </div>
+              <NotificationBell
+                notifications={notifications}
+                userId={user?.id}
+                isLoading={isLoading}
+              />
+              <HeaderProfileLink
+                href="/admin/profile"
+                displayName={displayName}
+                subtitle="Veterinary Staff"
+                avatarUrl={profile?.avatar_url}
+              />
             </div>
           </header>
           <main className="flex-1 overflow-auto bg-muted/30 p-4 md:p-6">{children}</main>

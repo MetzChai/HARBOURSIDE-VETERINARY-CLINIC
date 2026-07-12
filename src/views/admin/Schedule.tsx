@@ -9,17 +9,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Printer, Loader2, Clock } from "lucide-react";
+import { Plus, Printer, Loader2, Clock, CheckCircle2 } from "lucide-react";
 import { db } from "@/lib/db-client";
 import { useRows, useInvalidate } from "@/hooks/useRows";
 import { formatDate } from "@/lib/age";
+import { formatNowPH } from "@/lib/datetime";
+import { APPOINTMENT_SLOTS, VET_OPTIONS, CARE_TYPES, CARE_TYPE_LABELS, normalizeCareType } from "@/lib/appointment-slots";
 import { toast } from "sonner";
 
 const STATUSES = ["Scheduled", "Completed", "Missed", "Cancelled", "Requested"] as const;
-const SLOTS = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"];
 
-const statusVariant = (s: string) =>
-  s === "Completed" ? "default" : s === "Missed" || s === "Cancelled" ? "destructive" : "secondary";
+const statusVariant = (s: string) => {
+  if (s === "Completed") return "default";
+  if (s === "Requested") return "outline";
+  if (s === "Missed" || s === "Cancelled") return "destructive";
+  return "secondary";
+};
 
 export default function Schedule() {
   const { data: appointments = [], isLoading } = useRows<any>("appointments", { orderBy: "date", ascending: false });
@@ -28,7 +33,11 @@ export default function Schedule() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
-  const emptyForm = { pet_id: "", walk_in_pet: "", walk_in_owner: "", date: "", time: "", vet: "", reason: "", type: "scheduled" };
+  const [approveTarget, setApproveTarget] = useState<any | null>(null);
+  const [approveVet, setApproveVet] = useState("");
+  const [approveCareType, setApproveCareType] = useState("checkup");
+  const [approving, setApproving] = useState(false);
+  const emptyForm = { pet_id: "", walk_in_pet: "", walk_in_owner: "", date: "", time: "", vet: "", reason: "", type: "scheduled", care_type: "checkup" };
   const [form, setForm] = useState(emptyForm);
 
   const isWalkIn = form.type === "walk_in";
@@ -50,12 +59,72 @@ export default function Schedule() {
     );
   }, [appointments, form.date]);
 
-  const availableSlots = SLOTS.filter((s) => !takenSlots.has(s));
+  const availableSlots = APPOINTMENT_SLOTS.filter((s) => !takenSlots.has(s));
+
+  const sortedAppointments = useMemo(() => {
+    return [...appointments].sort((a, b) => {
+      if (a.status === "Requested" && b.status !== "Requested") return -1;
+      if (b.status === "Requested" && a.status !== "Requested") return 1;
+      return String(b.date).localeCompare(String(a.date)) || String(a.time).localeCompare(String(b.time));
+    });
+  }, [appointments]);
+
+  const requestedCount = appointments.filter((a) => a.status === "Requested").length;
+
+  const careTypeLabel = (value: unknown) => CARE_TYPE_LABELS[normalizeCareType(value)];
+
+  const reasonPlaceholder = (careType: string) => {
+    if (careType === "vaccine") return "e.g. Rabies, DHPP";
+    if (careType === "treatment") return "e.g. Wound dressing, ear infection";
+    return "e.g. Annual check-up";
+  };
 
   const updateStatus = async (id: string, status: string) => {
-    const { error } = await db.from("appointments").update({ status } as any).eq("id", id);
+    const { error, meta } = await db.from("appointments").update({ status } as any).eq("id", id);
     if (error) { toast.error(error.message); return; }
-    toast.success(`Marked as ${status}`);
+    if (status === "Completed") {
+      if (meta?.careRecorded) {
+        toast.success("Marked as Completed — added to Care History");
+        invalidate("care_records");
+        invalidate("vaccinations");
+        invalidate("pets");
+      } else if (meta?.careSkipReason) {
+        toast.warning(`Completed, but not recorded: ${meta.careSkipReason}`);
+      } else {
+        toast.success("Marked as Completed");
+      }
+    } else {
+      toast.success(`Marked as ${status}`);
+    }
+    invalidate("appointments");
+  };
+
+  const updateCareType = async (id: string, careType: string) => {
+    const { error } = await db.from("appointments").update({ care_type: careType } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Visit type set to ${careTypeLabel(careType)}`);
+    invalidate("appointments");
+  };
+
+  const approveRequest = async () => {
+    if (!approveTarget || !approveVet) {
+      toast.error("Select a veterinarian to approve");
+      return;
+    }
+    setApproving(true);
+    const { error } = await db
+      .from("appointments")
+      .update({ status: "Scheduled", vet: approveVet, type: "scheduled", care_type: approveCareType } as any)
+      .eq("id", approveTarget.id);
+    setApproving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Appointment approved");
+    setApproveTarget(null);
+    setApproveVet("");
+    setApproveCareType("checkup");
     invalidate("appointments");
   };
 
@@ -78,6 +147,7 @@ export default function Schedule() {
       reason: form.reason.trim() || null,
       notes: walkInNote,
       type: form.type,
+      care_type: form.care_type,
       status: "Scheduled",
     } as any);
     if (error) { setSaving(false); toast.error(error.message); return; }
@@ -133,9 +203,9 @@ export default function Schedule() {
       table{width:100%;border-collapse:collapse;margin-top:16px}
       th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#fdecea;color:#c0392b}</style></head>
       <body><h1>Harbourside Veterinary Clinic</h1><h2>Appointment Schedule</h2>
-      <table><tr><th>Pet</th><th>Date</th><th>Time</th><th>Vet</th><th>Reason</th><th>Type</th><th>Status</th></tr>
-      ${appointments.map((a) => `<tr><td>${petName(a)}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet ?? "—"}</td><td>${a.reason ?? "—"}</td><td>${a.type}</td><td>${a.status}</td></tr>`).join("")}
-      </table><br><p style="color:#999;font-size:12px">Generated on ${new Date().toLocaleDateString()}</p></body></html>`);
+      <table><tr><th>Pet</th><th>Date</th><th>Time</th><th>Vet</th><th>Visit</th><th>Reason</th><th>Type</th><th>Status</th></tr>
+      ${appointments.map((a) => `<tr><td>${petName(a)}</td><td>${a.date}</td><td>${a.time}</td><td>${a.vet ?? "—"}</td><td>${careTypeLabel(a.care_type)}</td><td>${a.reason ?? "—"}</td><td>${a.type}</td><td>${a.status}</td></tr>`).join("")}
+      </table><br><p style="color:#999;font-size:12px">Generated on ${formatNowPH()} (PH Time)</p></body></html>`);
     w.document.close(); w.print();
   };
 
@@ -144,7 +214,7 @@ export default function Schedule() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold">Schedule</h1>
-          <p className="text-muted-foreground text-sm">Book appointments with live time-slot availability</p>
+          <p className="text-muted-foreground text-sm">Book appointments with live time-slot availability (Philippine Time)</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handlePrint}><Printer className="h-4 w-4 mr-1" /> Print Schedule</Button>
@@ -189,7 +259,7 @@ export default function Schedule() {
                     <p className="text-xs text-destructive">No slots available on this date.</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {SLOTS.map((s) => {
+                      {APPOINTMENT_SLOTS.map((s) => {
                         const taken = takenSlots.has(s);
                         const selected = form.time === s;
                         return (
@@ -210,17 +280,26 @@ export default function Schedule() {
                       })}
                     </div>
                   )}
-                  {form.date && <p className="text-xs text-muted-foreground">{availableSlots.length} of {SLOTS.length} slots open</p>}
+                  {form.date && <p className="text-xs text-muted-foreground">{availableSlots.length} of {APPOINTMENT_SLOTS.length} slots open</p>}
                 </div>
 
                 <div className="space-y-2"><Label>Veterinarian</Label>
                   <Select value={form.vet} onValueChange={(v) => setForm((f) => ({ ...f, vet: v }))}>
                     <SelectTrigger><SelectValue placeholder="Select vet" /></SelectTrigger>
-                    <SelectContent><SelectItem value="Dr. Rivera">Dr. Rivera</SelectItem><SelectItem value="Dr. Tan">Dr. Tan</SelectItem></SelectContent>
+                    <SelectContent>{VET_OPTIONS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2"><Label>Visit type</Label>
+                  <Select value={form.care_type} onValueChange={(v) => setForm((f) => ({ ...f, care_type: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CARE_TYPES.map((t) => <SelectItem key={t} value={t}>{CARE_TYPE_LABELS[t]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">When completed, this visit is auto-recorded in Care History.</p>
+                </div>
                 <div className="space-y-2"><Label>Reason</Label>
-                  <Input placeholder="e.g. Annual check-up" value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} />
+                  <Input placeholder={reasonPlaceholder(form.care_type)} value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} />
                 </div>
               </div>
               <DialogFooter>
@@ -232,21 +311,37 @@ export default function Schedule() {
         </div>
       </div>
 
+      {requestedCount > 0 && (
+        <Card className="border-primary/30 bg-primary/5 shadow-sm">
+          <CardContent className="py-3 text-sm">
+            <strong>{requestedCount}</strong> appointment request{requestedCount === 1 ? "" : "s"} waiting for approval.
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-0 shadow-sm">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div> : (
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Pet</TableHead><TableHead>Date</TableHead><TableHead>Time</TableHead>
-                <TableHead>Vet</TableHead><TableHead>Type</TableHead><TableHead>Reason</TableHead><TableHead>Status</TableHead>
+                <TableHead>Pet</TableHead><TableHead>Date</TableHead><TableHead>Time (PHT)</TableHead>
+                <TableHead>Vet</TableHead><TableHead>Visit</TableHead><TableHead>Type</TableHead><TableHead>Reason</TableHead><TableHead>Status</TableHead><TableHead className="w-[120px]"></TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {appointments.map((a) => (
-                  <TableRow key={a.id}>
+                {sortedAppointments.map((a) => (
+                  <TableRow key={a.id} className={a.status === "Requested" ? "bg-primary/5" : undefined}>
                     <TableCell className="font-medium">{petName(a)}</TableCell>
                     <TableCell>{formatDate(a.date)}</TableCell>
                     <TableCell>{a.time}</TableCell>
                     <TableCell>{a.vet ?? "—"}</TableCell>
+                    <TableCell>
+                      <Select value={normalizeCareType(a.care_type)} onValueChange={(v) => updateCareType(a.id, v)}>
+                        <SelectTrigger className="h-8 w-[120px] border-0 bg-transparent p-0 hover:bg-accent/50 focus:ring-1">
+                          <span className="text-sm">{careTypeLabel(a.care_type)}</span>
+                        </SelectTrigger>
+                        <SelectContent>{CARE_TYPES.map((t) => <SelectItem key={t} value={t}>{CARE_TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell className="capitalize">{String(a.type).replace("_", "-")}</TableCell>
                     <TableCell>{a.reason ?? "—"}</TableCell>
                     <TableCell>
@@ -257,14 +352,66 @@ export default function Schedule() {
                         <SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell>
+                      {a.status === "Requested" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => {
+                            setApproveTarget(a);
+                            setApproveVet(a.vet ?? "");
+                            setApproveCareType(normalizeCareType(a.care_type));
+                          }}
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
-                {appointments.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No appointments yet</TableCell></TableRow>}
+                {sortedAppointments.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No appointments yet</TableCell></TableRow>}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!approveTarget} onOpenChange={(o) => { if (!o) { setApproveTarget(null); setApproveVet(""); setApproveCareType("checkup"); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve appointment request</DialogTitle>
+          </DialogHeader>
+          {approveTarget && (
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">
+                {petName(approveTarget)} — {formatDate(approveTarget.date)} at {approveTarget.time}
+                {approveTarget.reason ? ` · ${approveTarget.reason}` : ""}
+              </p>
+              <div className="space-y-2">
+                <Label>Visit type</Label>
+                <Select value={approveCareType} onValueChange={setApproveCareType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{CARE_TYPES.map((t) => <SelectItem key={t} value={t}>{CARE_TYPE_LABELS[t]}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Assign veterinarian</Label>
+                <Select value={approveVet} onValueChange={setApproveVet}>
+                  <SelectTrigger><SelectValue placeholder="Select vet" /></SelectTrigger>
+                  <SelectContent>{VET_OPTIONS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApproveTarget(null)}>Cancel</Button>
+            <Button onClick={approveRequest} disabled={approving}>
+              {approving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Schedule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

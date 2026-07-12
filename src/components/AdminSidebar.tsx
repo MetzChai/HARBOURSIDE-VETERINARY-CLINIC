@@ -1,6 +1,6 @@
 "use client";
 
-import { PawPrint, Users, Calendar, Syringe, ClipboardList, Heart, Package, FileText, LogOut, LayoutDashboard, Bug, Receipt, MessageSquare, UserCog } from "lucide-react";
+import { PawPrint, Users, Calendar, Heart, Package, FileText, LogOut, LayoutDashboard, Bug, Receipt, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,8 +22,6 @@ const mainItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Manage Pets", url: "/admin/pets", icon: PawPrint },
   { title: "Manage Owners", url: "/admin/owners", icon: Users },
-  { title: "Accounts", url: "/admin/accounts", icon: UserCog },
-  { title: "Vaccinations", url: "/admin/vaccinations", icon: Syringe },
   { title: "Deworming", url: "/admin/dewormings", icon: Bug },
   { title: "Schedule", url: "/admin/schedule", icon: Calendar },
   { title: "Care History", url: "/admin/care-history", icon: Heart },

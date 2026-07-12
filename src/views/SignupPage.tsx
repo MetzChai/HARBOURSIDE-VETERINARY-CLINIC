@@ -23,6 +23,11 @@ function GoogleIcon() {
   );
 }
 
+function isGmailAddress(email: string) {
+  const domain = email.split("@")[1]?.toLowerCase();
+  return domain === "gmail.com" || domain === "googlemail.com";
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const { refreshSession } = useAuth();
@@ -50,6 +55,10 @@ export default function SignupPage() {
       setError("Please enter a valid email address.");
       return;
     }
+    if (!isGmailAddress(email)) {
+      setError("Pet owner registration requires a @gmail.com address.");
+      return;
+    }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -68,6 +77,15 @@ export default function SignupPage() {
     });
     if (signUpError) {
       setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+    if (data.needsVerification) {
+      toast({
+        title: "Account created",
+        description: "Verify your Gmail with Google before signing in.",
+      });
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       setLoading(false);
       return;
     }
@@ -92,7 +110,6 @@ export default function SignupPage() {
             <PawPrint className="w-8 h-8 text-primary" />
           </div>
           <h1 className="font-heading text-2xl font-bold text-foreground">Create your account</h1>
-          <p className="text-muted-foreground text-sm mt-1">Sign up as a pet owner</p>
         </div>
 
         <div className="mb-4">
@@ -112,10 +129,10 @@ export default function SignupPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="signup-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email Address</Label>
+                <Label htmlFor="signup-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gmail Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="signup-email" type="email" placeholder="you@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="pl-10 h-11" />
+                  <Input id="signup-email" type="email" placeholder="you@gmail.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="pl-10 h-11" />
                 </div>
               </div>
               <div className="space-y-2">

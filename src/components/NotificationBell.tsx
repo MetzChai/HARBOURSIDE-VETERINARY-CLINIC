@@ -1,21 +1,16 @@
 "use client";
 
-import { Bell, Syringe, Calendar, AlertTriangle, Package, CheckCheck } from "lucide-react";
+import { Bell, Syringe, Calendar, AlertTriangle, Package, CheckCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useNotificationRead } from "@/hooks/useNotificationRead";
+import type { NotificationItem } from "@/lib/notifications";
 
-export interface NotificationItem {
-  id: string;
-  title: string;
-  description: string;
-  type: "vaccine" | "appointment" | "inventory" | "alert";
-  time: string;
-  link?: string;
-}
+export type { NotificationItem };
 
 const iconMap = {
   vaccine: Syringe,
@@ -33,19 +28,24 @@ const colorMap = {
 
 interface Props {
   notifications: NotificationItem[];
+  userId?: string;
+  isLoading?: boolean;
 }
 
-export default function NotificationBell({ notifications }: Props) {
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+export default function NotificationBell({ notifications, userId, isLoading }: Props) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
+  const { loaded, isRead, markRead, markAllRead, unreadCount } = useNotificationRead(userId);
+
+  const notificationIds = notifications.map((n) => n.id);
+  const unread = loaded ? unreadCount(notificationIds) : 0;
 
   const defaultLinkFor = (type: NotificationItem["type"]) => {
     if (isAdmin) {
       switch (type) {
-        case "vaccine": return "/admin/vaccinations";
+        case "vaccine": return "/admin/care-history";
         case "appointment": return "/admin/schedule";
         case "inventory": return "/admin/inventory";
         case "alert": return "/admin";
@@ -58,14 +58,8 @@ export default function NotificationBell({ notifications }: Props) {
     }
   };
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !readIds.has(n.id)).length,
-    [notifications, readIds]
-  );
-
-  const markAllRead = () => setReadIds(new Set(notifications.map((n) => n.id)));
   const handleClick = (n: NotificationItem) => {
-    setReadIds((prev) => new Set(prev).add(n.id));
+    markRead(n.id);
     setOpen(false);
     router.push(n.link ?? defaultLinkFor(n.type));
   };
@@ -75,9 +69,9 @@ export default function NotificationBell({ notifications }: Props) {
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
           <Bell className="h-4 w-4" />
-          {unreadCount > 0 && (
+          {unread > 0 && (
             <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] bg-destructive">
-              {unreadCount}
+              {unread > 9 ? "9+" : unread}
             </Badge>
           )}
         </Button>
@@ -87,31 +81,40 @@ export default function NotificationBell({ notifications }: Props) {
           <div>
             <p className="font-heading font-semibold text-sm">Notifications</p>
             <p className="text-xs text-muted-foreground">
-              {unreadCount} unread
+              {isLoading ? "Updating…" : `${unread} unread`}
             </p>
           </div>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllRead} className="h-7 text-xs">
+          {unread > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => markAllRead(notificationIds)}
+              className="h-7 text-xs"
+            >
               <CheckCheck className="h-3 w-3 mr-1" /> Mark all read
             </Button>
           )}
         </div>
         <ScrollArea className="max-h-80">
-          {notifications.length === 0 ? (
+          {isLoading && notifications.length === 0 ? (
+            <div className="flex justify-center p-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : notifications.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center p-6">
-              No notifications
+              You&apos;re all caught up — no alerts right now
             </p>
           ) : (
             <div className="divide-y">
               {notifications.map((n) => {
                 const Icon = iconMap[n.type];
-                const isRead = readIds.has(n.id);
+                const read = loaded && isRead(n.id);
                 return (
                   <button
                     key={n.id}
                     onClick={() => handleClick(n)}
                     className={`w-full flex items-start gap-3 p-3 text-left hover:bg-muted/50 transition-colors ${
-                      !isRead ? "bg-primary/5" : ""
+                      !read ? "bg-primary/5" : ""
                     }`}
                   >
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${colorMap[n.type]}`}>
@@ -119,10 +122,10 @@ export default function NotificationBell({ notifications }: Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium leading-tight">{n.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{n.description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.description}</p>
                       <p className="text-[10px] text-muted-foreground mt-1">{n.time}</p>
                     </div>
-                    {!isRead && <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />}
+                    {!read && <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />}
                   </button>
                 );
               })}

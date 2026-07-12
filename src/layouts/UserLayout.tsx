@@ -3,40 +3,31 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { UserSidebar } from "@/components/UserSidebar";
 import ChatbotWidget from "@/components/ChatbotWidget";
-import NotificationBell, { NotificationItem } from "@/components/NotificationBell";
-import { useMyOwner, useMyPets, useMyAppointments, useMyVaccinations } from "@/hooks/useOwnerData";
+import NotificationBell from "@/components/NotificationBell";
+import HeaderProfileLink from "@/components/HeaderProfileLink";
+import { useMyOwner } from "@/hooks/useOwnerData";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { db } from "@/lib/db-client";
+import { useOwnerNotifications } from "@/hooks/useNotifications";
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { data: owner } = useMyOwner();
-  const { data: pets = [] } = useMyPets();
-  const { data: appointments = [] } = useMyAppointments();
-  const { data: vaccinations = [] } = useMyVaccinations();
+  const { notifications, isLoading } = useOwnerNotifications();
 
-  const today = new Date();
-  const in30 = new Date();
-  in30.setDate(today.getDate() + 30);
-
-  const vaccinesDue = vaccinations.filter((v: any) => v.next_due && new Date(v.next_due) <= in30);
-  const upcoming = appointments.filter((a: any) => (a.status ?? "").toLowerCase() === "scheduled");
-
-  const notifications: NotificationItem[] = [
-    ...vaccinesDue.map((v: any) => ({
-      id: `vac-${v.id}`,
-      title: `${v.pets?.name ?? "Pet"}'s ${v.vaccine_type} vaccine due`,
-      description: `Schedule a visit by ${v.next_due}`,
-      type: "vaccine" as const,
-      time: v.next_due,
-    })),
-    ...upcoming.map((a: any) => ({
-      id: `apt-${a.id}`,
-      title: `Upcoming: ${a.pets?.name ?? "Pet"}`,
-      description: `${a.reason ?? "Visit"} • ${a.date} at ${a.time}`,
-      type: "appointment" as const,
-      time: a.date,
-    })),
-  ];
+  const { data: profile } = useQuery({
+    queryKey: ["my-profile", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await db
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return data as { avatar_url?: string } | null;
+    },
+  });
 
   const displayName = owner?.name ?? user?.email ?? "Pet Owner";
 
@@ -51,16 +42,17 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
               <span className="text-sm text-muted-foreground font-medium">Pet Owner Portal</span>
             </div>
             <div className="flex items-center gap-3">
-              <NotificationBell notifications={notifications} />
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary">{displayName[0]?.toUpperCase()}</span>
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium leading-none">{displayName}</p>
-                  <p className="text-xs text-muted-foreground">Pet Owner</p>
-                </div>
-              </div>
+              <NotificationBell
+                notifications={notifications}
+                userId={user?.id}
+                isLoading={isLoading}
+              />
+              <HeaderProfileLink
+                href="/user/profile"
+                displayName={displayName}
+                subtitle="Pet Owner"
+                avatarUrl={profile?.avatar_url}
+              />
             </div>
           </header>
           <main className="flex-1 overflow-auto bg-muted/30 p-4 md:p-6">{children}</main>

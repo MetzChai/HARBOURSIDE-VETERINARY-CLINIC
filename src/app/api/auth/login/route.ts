@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSessionToken, setSessionCookie } from "@/lib/server/auth";
-import { loginUser } from "@/lib/server/data";
+import { loginUser, ensureUserProfile } from "@/lib/server/data";
 
 export async function POST(request: Request) {
   try {
@@ -9,10 +9,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
-    const user = await loginUser(email, password);
-    if (!user) {
+    const result = await loginUser(email, password);
+    if (!result) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
+    if ("error" in result && result.error === "EMAIL_NOT_VERIFIED") {
+      return NextResponse.json(
+        {
+          error: "Please verify your Gmail address with Google before signing in.",
+          code: "EMAIL_NOT_VERIFIED",
+          email: result.email,
+        },
+        { status: 403 }
+      );
+    }
+
+    if ("error" in result && result.error === "GOOGLE_ONLY") {
+      return NextResponse.json(
+        {
+          error: "This account uses Google sign-in. Click Continue with Google below.",
+          code: "GOOGLE_ONLY",
+          email: result.email,
+        },
+        { status: 403 }
+      );
+    }
+
+    if ("error" in result) {
+      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    }
+
+    const user = result;
+    await ensureUserProfile(user.id, user.email, user.fullName);
 
     const token = await createSessionToken(user);
     await setSessionCookie(token);

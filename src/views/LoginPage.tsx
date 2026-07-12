@@ -33,9 +33,15 @@ export default function LoginPage() {
 
   useEffect(() => {
     const authError = new URLSearchParams(window.location.search).get("error");
-    if (authError === "google_not_configured") setError("Google login is not configured.");
-    else if (authError === "google_auth_failed") setError("Google sign-in failed. Please try again.");
-    else if (authError === "google_no_email") setError("Google account has no email address.");
+    const messages: Record<string, string> = {
+      google_not_configured: "Google login is not configured on the server.",
+      google_auth_failed: "Google sign-in failed. Please try again.",
+      google_no_email: "Your Google account has no email address.",
+      google_email_unverified: "Please verify your Gmail address with Google first.",
+      google_gmail_only: "New Google sign-ups require a verified @gmail.com account.",
+      google_state_invalid: "Sign-in session expired. Please try Google again.",
+    };
+    if (authError && messages[authError]) setError(messages[authError]);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -44,6 +50,17 @@ export default function LoginPage() {
     setLoading(true);
     const { data, error: signInError } = await authClient.signInWithPassword({ email, password });
     if (signInError || !data.user) {
+      if (signInError?.code === "EMAIL_NOT_VERIFIED") {
+        setError("Please verify your Gmail with Google before signing in.");
+        setLoading(false);
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+        return;
+      }
+      if (signInError?.code === "GOOGLE_ONLY") {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
       setError(signInError?.message ?? "Invalid email or password.");
       setLoading(false);
       return;

@@ -1,5 +1,7 @@
 // Pet age computation helpers
 
+import { formatDatePH } from "./datetime";
+
 export function getAge(dob?: string | null): { years: number; months: number } | null {
   if (!dob) return null;
   const birth = new Date(dob);
@@ -26,8 +28,5 @@ export function formatAge(dob?: string | null): string {
 }
 
 export function formatDate(d?: string | null): string {
-  if (!d) return "—";
-  const date = new Date(d);
-  if (isNaN(date.getTime())) return d;
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return formatDatePH(d);
 }

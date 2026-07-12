@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash text,
   full_name text,
   google_id text UNIQUE,
+  email_verified boolean NOT NULL DEFAULT false,
+  must_verify_gmail boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -46,6 +48,8 @@ CREATE TABLE IF NOT EXISTS users (
 -- Migration for existing databases
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id text UNIQUE;
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS must_verify_gmail boolean NOT NULL DEFAULT false;
 
 DROP TRIGGER IF EXISTS trg_users_updated ON users;
 CREATE TRIGGER trg_users_updated BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -55,9 +59,12 @@ CREATE TABLE IF NOT EXISTS profiles (
   id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   full_name text,
   email text,
+  avatar_url text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url text;
 
 DROP TRIGGER IF EXISTS trg_profiles_updated ON profiles;
 CREATE TRIGGER trg_profiles_updated BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -118,10 +125,13 @@ CREATE TABLE IF NOT EXISTS appointments (
   reason text,
   type appt_type NOT NULL DEFAULT 'scheduled',
   status appt_status NOT NULL DEFAULT 'Scheduled',
+  care_type text NOT NULL DEFAULT 'checkup',
   notes text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS care_type text NOT NULL DEFAULT 'checkup';
 
 DROP TRIGGER IF EXISTS trg_appts_updated ON appointments;
 CREATE TRIGGER trg_appts_updated BEFORE UPDATE ON appointments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -130,6 +140,7 @@ CREATE TRIGGER trg_appts_updated BEFORE UPDATE ON appointments FOR EACH ROW EXEC
 CREATE TABLE IF NOT EXISTS vaccinations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   pet_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  appointment_id uuid UNIQUE REFERENCES appointments(id) ON DELETE SET NULL,
   vaccine_type text NOT NULL,
   date_given date,
   next_due date,
@@ -138,6 +149,8 @@ CREATE TABLE IF NOT EXISTS vaccinations (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS appointment_id uuid UNIQUE REFERENCES appointments(id) ON DELETE SET NULL;
 
 DROP TRIGGER IF EXISTS trg_vax_updated ON vaccinations;
 CREATE TRIGGER trg_vax_updated BEFORE UPDATE ON vaccinations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -163,6 +176,7 @@ CREATE TRIGGER trg_deworm_updated BEFORE UPDATE ON dewormings FOR EACH ROW EXECU
 CREATE TABLE IF NOT EXISTS care_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   pet_id uuid NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+  appointment_id uuid UNIQUE REFERENCES appointments(id) ON DELETE SET NULL,
   date date NOT NULL DEFAULT CURRENT_DATE,
   vet text,
   record_type text NOT NULL DEFAULT 'checkup',
@@ -175,6 +189,8 @@ CREATE TABLE IF NOT EXISTS care_records (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE care_records ADD COLUMN IF NOT EXISTS appointment_id uuid UNIQUE REFERENCES appointments(id) ON DELETE SET NULL;
 
 DROP TRIGGER IF EXISTS trg_care_updated ON care_records;
 CREATE TRIGGER trg_care_updated BEFORE UPDATE ON care_records FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -278,3 +294,8 @@ CREATE TRIGGER trg_apply_inventory_transaction
 INSERT INTO owners (id, name, email)
 VALUES ('00000000-0000-0000-0000-0000000000aa', 'Walk-in Clients', null)
 ON CONFLICT (id) DO NOTHING;
+
+-- Backfill verification for existing accounts
+UPDATE users SET email_verified = true, must_verify_gmail = false WHERE google_id IS NOT NULL;
+UPDATE users SET email_verified = true, must_verify_gmail = false
+WHERE id IN (SELECT user_id FROM user_roles WHERE role = 'admin');

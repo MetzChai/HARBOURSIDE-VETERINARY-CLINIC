@@ -1,7 +1,13 @@
 import type { SessionUser } from "./auth";
 import { getPool, isTableName, parseSelect, quoteIdent, type TableName } from "./db";
+import { APPOINTMENT_SLOTS, isSlotBlockingStatus, normalizeCareType } from "../appointment-slots";
+import { toDateOnly } from "../datetime";
 
 type Filter = { column: string; value: unknown };
+
+const WALK_IN_OWNER_ID = "00000000-0000-0000-0000-0000000000aa";
+
+type CareSyncResult = { recorded: boolean; skipReason?: string };
 
 const ADMIN_ONLY_TABLES: TableName[] = [
   "inventory_items",
@@ -201,6 +207,72 @@ export async function querySelect(opts: {
   return shaped;
 }
 
+export async function getAppointmentAvailability(date: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT time, status FROM appointments WHERE date = $1`,
+    [date]
+  );
+  const taken = new Set(
+    rows
+      .filter((r: { status?: string }) => isSlotBlockingStatus(r.status))
+      .map((r: { time: string }) => r.time)
+  );
+  const available = APPOINTMENT_SLOTS.filter((s) => !taken.has(s));
+  return { date, slots: [...APPOINTMENT_SLOTS], taken: [...taken], available };
+}
+
+async function assertAppointmentSlotAvailable(date: string, time: string, excludeId?: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id, status FROM appointments WHERE date = $1 AND time = $2`,
+    [date, time]
+  );
+  const conflict = rows.find(
+    (r: { id: string; status?: string }) =>
+      r.id !== excludeId && isSlotBlockingStatus(r.status)
+  );
+  if (conflict) {
+    throw new Error("That time slot is already booked.");
+  }
+}
+
+async function sanitizeOwnerAppointmentInsert(user: SessionUser, row: Record<string, unknown>) {
+  const petId = String(row.pet_id ?? "");
+  const date = String(row.date ?? "");
+  const time = String(row.time ?? "");
+  const reason = String(row.reason ?? "").trim();
+
+  if (!petId || !date || !time || !reason) {
+    throw new Error("Pet, date, time, and reason are required.");
+  }
+
+  const petIds = await getPetIds(user.id);
+  if (!petIds.includes(petId)) {
+    throw new Error("You can only request appointments for your own pets.");
+  }
+
+  const pool = getPool();
+  const { rows: petRows } = await pool.query(`SELECT owner_id FROM pets WHERE id = $1`, [petId]);
+  const ownerId = petRows[0]?.owner_id as string | undefined;
+  if (!ownerId) throw new Error("Pet not found.");
+
+  await assertAppointmentSlotAvailable(date, time);
+
+  return {
+    pet_id: petId,
+    owner_id: ownerId,
+    date,
+    time,
+    reason,
+    vet: null,
+    type: "request",
+    status: "Requested",
+    care_type: normalizeCareType(row.care_type),
+    notes: null,
+  };
+}
+
 export async function queryInsert(opts: {
   user: SessionUser;
   table: string;
@@ -215,8 +287,13 @@ export async function queryInsert(opts: {
   const results: Record<string, unknown>[] = [];
 
   for (const row of rows) {
-    const keys = Object.keys(row).map(quoteIdent);
-    const values = Object.values(row);
+    let payload = row;
+    if (table === "appointments" && opts.user.role === "owner") {
+      payload = await sanitizeOwnerAppointmentInsert(opts.user, row);
+    }
+
+    const keys = Object.keys(payload).map(quoteIdent);
+    const values = Object.values(payload);
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
     const query = `INSERT INTO ${quoteIdent(table)} (${keys.join(", ")}) VALUES (${placeholders})${
       opts.returning ? " RETURNING *" : ""
@@ -236,13 +313,40 @@ export async function queryUpdate(opts: {
   table: string;
   data: Record<string, unknown>;
   filters: Filter[];
-}) {
+}): Promise<{ careRecorded?: boolean; careSkipReason?: string }> {
   const table = assertTable(opts.table);
   await authorizeTableAccess(opts.user, table, "update");
 
   const pool = getPool();
   const keys = Object.keys(opts.data).map(quoteIdent);
-  const values = Object.values(opts.data);
+  let values = Object.values(opts.data);
+
+  if (table === "appointments" && opts.user.role === "admin") {
+    const idFilter = opts.filters.find((f) => f.column === "id");
+    const appointmentId = idFilter?.value ? String(idFilter.value) : undefined;
+
+    if (opts.data.status === "Scheduled" && appointmentId) {
+      const { rows } = await pool.query(`SELECT date, time FROM appointments WHERE id = $1`, [appointmentId]);
+      const current = rows[0] as { date?: string; time?: string } | undefined;
+      const date = String(opts.data.date ?? current?.date ?? "");
+      const time = String(opts.data.time ?? current?.time ?? "");
+      if (date && time) {
+        await assertAppointmentSlotAvailable(date, time, appointmentId);
+      }
+    }
+  }
+
+  let shouldSyncCare = false;
+  let appointmentIdForSync: string | undefined;
+  if (table === "appointments" && opts.data.status === "Completed") {
+    const idFilter = opts.filters.find((f) => f.column === "id");
+    appointmentIdForSync = idFilter?.value ? String(idFilter.value) : undefined;
+    if (appointmentIdForSync) {
+      const { rows } = await pool.query(`SELECT status FROM appointments WHERE id = $1`, [appointmentIdForSync]);
+      const previousStatus = rows[0]?.status as string | undefined;
+      shouldSyncCare = previousStatus !== "Completed";
+    }
+  }
 
   let paramIdx = values.length + 1;
   const whereParts = opts.filters.map((f) => {
@@ -255,6 +359,159 @@ export async function queryUpdate(opts: {
   const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(", ");
   const query = `UPDATE ${quoteIdent(table)} SET ${setClause} WHERE ${whereParts.join(" AND ")}`;
   await pool.query(query, values);
+
+  if (shouldSyncCare && appointmentIdForSync) {
+    const result = await syncCareRecordFromCompletedAppointment(appointmentIdForSync);
+    return { careRecorded: result.recorded, careSkipReason: result.skipReason };
+  }
+
+  return {};
+}
+
+async function resolveAppointmentPetId(
+  pool: ReturnType<typeof getPool>,
+  apt: { pet_id: string | null; notes: string | null }
+): Promise<string | null> {
+  if (apt.pet_id) return apt.pet_id;
+
+  const notes = apt.notes ?? "";
+  const match = notes.match(/^Walk-in pet:\s*([^|]+)/i);
+  if (!match) return null;
+
+  const petName = match[1].trim();
+  if (!petName) return null;
+
+  const { rows } = await pool.query(
+    `SELECT id FROM pets WHERE name ILIKE $1 ORDER BY created_at DESC LIMIT 1`,
+    [petName]
+  );
+  if (rows.length) return rows[0].id as string;
+
+  const { rows: created } = await pool.query(
+    `INSERT INTO pets (owner_id, name) VALUES ($1, $2) RETURNING id`,
+    [WALK_IN_OWNER_ID, petName]
+  );
+  return (created[0] as { id: string } | undefined)?.id ?? null;
+}
+
+async function syncCareRecordFromCompletedAppointment(appointmentId: string): Promise<CareSyncResult> {
+  const pool = getPool();
+
+  let aptRows;
+  try {
+    ({ rows: aptRows } = await pool.query(
+      `SELECT pet_id, date, vet, reason, status, notes, COALESCE(care_type, 'checkup') AS care_type
+       FROM appointments WHERE id = $1`,
+      [appointmentId]
+    ));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes("care_type")) throw err;
+    ({ rows: aptRows } = await pool.query(
+      `SELECT pet_id, date, vet, reason, status, notes FROM appointments WHERE id = $1`,
+      [appointmentId]
+    ));
+  }
+  if (!aptRows.length) return { recorded: false, skipReason: "Appointment not found" };
+
+  const apt = aptRows[0] as {
+    pet_id: string | null;
+    date: string;
+    vet: string | null;
+    reason: string | null;
+    status: string;
+    care_type: string | null;
+    notes: string | null;
+  };
+
+  if (apt.status !== "Completed") return { recorded: false, skipReason: "Appointment is not completed" };
+
+  const petId = await resolveAppointmentPetId(pool, apt);
+  if (!petId) {
+    return {
+      recorded: false,
+      skipReason: "No pet linked — select a registered pet or add a walk-in pet name when booking",
+    };
+  }
+
+  if (!apt.pet_id) {
+    await pool.query(`UPDATE appointments SET pet_id = $1 WHERE id = $2`, [petId, appointmentId]);
+  }
+
+  const careType = normalizeCareType(apt.care_type);
+  const reason = apt.reason?.trim() || (careType === "vaccine" ? "Vaccination" : "Routine visit");
+  const autoNote = "Auto-recorded from completed appointment.";
+  const recordDate = toDateOnly(apt.date);
+
+  if (careType === "vaccine") {
+    const existing = await pool.query(`SELECT id FROM vaccinations WHERE appointment_id = $1`, [appointmentId]);
+    if (existing.rows.length) return { recorded: true };
+
+    try {
+      await pool.query(
+        `INSERT INTO vaccinations (pet_id, appointment_id, vaccine_type, date_given, vet, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [petId, appointmentId, reason, recordDate, apt.vet, autoNote]
+      );
+      return { recorded: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("appointment_id")) throw err;
+
+      const marker = `appointment:${appointmentId}`;
+      const dup = await pool.query(`SELECT id FROM vaccinations WHERE notes LIKE $1`, [`%${marker}%`]);
+      if (dup.rows.length) return { recorded: true };
+
+      await pool.query(
+        `INSERT INTO vaccinations (pet_id, vaccine_type, date_given, vet, notes)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [petId, reason, recordDate, apt.vet, `${autoNote} ${marker}`]
+      );
+      return { recorded: true };
+    }
+  }
+
+  try {
+    const existing = await pool.query(`SELECT id FROM care_records WHERE appointment_id = $1`, [appointmentId]);
+    if (existing.rows.length) return { recorded: true };
+
+    if (careType === "treatment") {
+      await pool.query(
+        `INSERT INTO care_records (pet_id, appointment_id, record_type, date, vet, treatment, notes)
+         VALUES ($1, $2, 'treatment', $3, $4, $5, $6)`,
+        [petId, appointmentId, recordDate, apt.vet, reason, autoNote]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO care_records (pet_id, appointment_id, record_type, date, vet, diagnosis, outcome, notes)
+         VALUES ($1, $2, 'checkup', $3, $4, $5, $6, $7)`,
+        [petId, appointmentId, recordDate, apt.vet, reason, "Completed", autoNote]
+      );
+    }
+    return { recorded: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes("appointment_id")) throw err;
+
+    const marker = `appointment:${appointmentId}`;
+    const dup = await pool.query(`SELECT id FROM care_records WHERE notes LIKE $1`, [`%${marker}%`]);
+    if (dup.rows.length) return { recorded: true };
+
+    if (careType === "treatment") {
+      await pool.query(
+        `INSERT INTO care_records (pet_id, record_type, date, vet, treatment, notes)
+         VALUES ($1, 'treatment', $2, $3, $4, $5)`,
+        [petId, recordDate, apt.vet, reason, `${autoNote} ${marker}`]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO care_records (pet_id, record_type, date, vet, diagnosis, outcome, notes)
+         VALUES ($1, 'checkup', $2, $3, $4, $5, $6)`,
+        [petId, recordDate, apt.vet, reason, "Completed", `${autoNote} ${marker}`]
+      );
+    }
+    return { recorded: true };
+  }
 }
 
 export async function registerUser(opts: {
@@ -264,111 +521,353 @@ export async function registerUser(opts: {
   contact?: string;
 }) {
   const pool = getPool();
-  const { hashPassword, isAdminEmail } = await import("./auth");
+  const { hashPassword } = await import("./auth");
   const passwordHash = await hashPassword(opts.password);
-  const isAdmin = isAdminEmail(opts.email);
+  const email = opts.email.toLowerCase().trim();
 
-  const { rows: users } = await pool.query(
-    `INSERT INTO users (email, password_hash, full_name) VALUES ($1, $2, $3) RETURNING id, email, full_name`,
-    [opts.email, passwordHash, opts.fullName]
-  );
-  const user = users[0] as { id: string; email: string; full_name: string };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  await pool.query(`INSERT INTO profiles (id, full_name, email) VALUES ($1, $2, $3)`, [
-    user.id,
-    opts.fullName,
-    opts.email,
-  ]);
+    let user: { id: string; email: string; full_name: string };
+    try {
+      const { rows } = await client.query(
+        `INSERT INTO users (email, password_hash, full_name, email_verified, must_verify_gmail)
+         VALUES ($1, $2, $3, false, true)
+         RETURNING id, email, full_name`,
+        [email, passwordHash, opts.fullName]
+      );
+      user = rows[0] as { id: string; email: string; full_name: string };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("must_verify_gmail") && !msg.includes("email_verified")) {
+        throw err;
+      }
+      const { rows } = await client.query(
+        `INSERT INTO users (email, password_hash, full_name)
+         VALUES ($1, $2, $3)
+         RETURNING id, email, full_name`,
+        [email, passwordHash, opts.fullName]
+      );
+      user = rows[0] as { id: string; email: string; full_name: string };
+    }
 
-  const role = isAdmin ? "admin" : "owner";
-  await pool.query(`INSERT INTO user_roles (user_id, role) VALUES ($1, $2::app_role)`, [user.id, role]);
-
-  if (!isAdmin) {
-    await pool.query(`INSERT INTO owners (user_id, name, email, contact) VALUES ($1, $2, $3, $4)`, [
+    await client.query(`INSERT INTO profiles (id, full_name, email) VALUES ($1, $2, $3)`, [
       user.id,
       opts.fullName,
-      opts.email,
+      email,
+    ]);
+
+    await client.query(`INSERT INTO user_roles (user_id, role) VALUES ($1, 'owner'::app_role)`, [user.id]);
+
+    await client.query(`INSERT INTO owners (user_id, name, email, contact) VALUES ($1, $2, $3, $4)`, [
+      user.id,
+      opts.fullName,
+      email,
       opts.contact ?? null,
     ]);
-  }
 
-  return { id: user.id, email: user.email, fullName: user.full_name, role: role as "admin" | "owner" };
+    await client.query("COMMIT");
+
+    return { id: user.id, email: user.email, fullName: user.full_name, role: "owner" as const };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
-export async function findOrCreateGoogleUser(opts: {
+async function setUserVerifiedWithAvatar(userId: string, picture?: string) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users SET email_verified = true, must_verify_gmail = false WHERE id = $1`,
+    [userId]
+  );
+  if (picture) {
+    await pool.query(`UPDATE profiles SET avatar_url = $1 WHERE id = $2`, [picture, userId]);
+  }
+}
+
+export async function loginOrRegisterGoogleUser(googleUser: {
   googleId: string;
   email: string;
   fullName: string;
-}) {
+  emailVerified: boolean;
+  picture?: string;
+}): Promise<
+  | { user: NonNullable<Awaited<ReturnType<typeof getUserSession>>> }
+  | { error: "NOT_GMAIL" }
+> {
   const pool = getPool();
-  const { isAdminEmail } = await import("./auth");
+  const { isGmailAddress } = await import("./google");
+  const email = googleUser.email.toLowerCase();
 
   const { rows: byGoogle } = await pool.query(
-    `SELECT u.id, u.email, u.full_name, ur.role
+    `SELECT u.id, u.email, u.full_name
      FROM users u
-     LEFT JOIN user_roles ur ON ur.user_id = u.id
      WHERE u.google_id = $1`,
-    [opts.googleId]
+    [googleUser.googleId]
   );
 
   if (byGoogle.length) {
-    const u = byGoogle[0] as { id: string; email: string; full_name: string; role: string | null };
-    const role = byGoogle.some((r: { role: string }) => r.role === "admin") ? "admin" : (u.role ?? "owner");
-    return { id: u.id, email: u.email, fullName: u.full_name, role: role as "admin" | "owner" };
+    const id = byGoogle[0].id as string;
+    await setUserVerifiedWithAvatar(id, googleUser.picture);
+    return { user: await getUserSession(id) };
   }
 
   const { rows: byEmail } = await pool.query(
-    `SELECT u.id, u.email, u.full_name, ur.role
+    `SELECT u.id, u.email, u.full_name
      FROM users u
-     LEFT JOIN user_roles ur ON ur.user_id = u.id
-     WHERE u.email = $1`,
-    [opts.email]
+     WHERE LOWER(u.email) = $1`,
+    [email]
   );
 
   if (byEmail.length) {
-    const u = byEmail[0] as { id: string; email: string; full_name: string; role: string | null };
-    await pool.query(`UPDATE users SET google_id = $1 WHERE id = $2`, [opts.googleId, u.id]);
-    const role = byEmail.some((r: { role: string }) => r.role === "admin") ? "admin" : (u.role ?? "owner");
-    return { id: u.id, email: u.email, fullName: u.full_name, role: role as "admin" | "owner" };
+    const id = byEmail[0].id as string;
+    await pool.query(`UPDATE users SET google_id = $1, full_name = COALESCE(full_name, $2) WHERE id = $3`, [
+      googleUser.googleId,
+      googleUser.fullName,
+      id,
+    ]);
+    await setUserVerifiedWithAvatar(id, googleUser.picture);
+    return { user: await getUserSession(id) };
   }
 
-  const isAdmin = isAdminEmail(opts.email);
-  const role = isAdmin ? "admin" : "owner";
+  if (!isGmailAddress(email)) {
+    return { error: "NOT_GMAIL" as const };
+  }
 
   const { rows: users } = await pool.query(
-    `INSERT INTO users (email, password_hash, full_name, google_id)
-     VALUES ($1, NULL, $2, $3)
+    `INSERT INTO users (email, password_hash, full_name, google_id, email_verified)
+     VALUES ($1, NULL, $2, $3, true)
      RETURNING id, email, full_name`,
-    [opts.email, opts.fullName, opts.googleId]
+    [email, googleUser.fullName, googleUser.googleId]
   );
   const user = users[0] as { id: string; email: string; full_name: string };
 
-  await pool.query(`INSERT INTO profiles (id, full_name, email) VALUES ($1, $2, $3)`, [
-    user.id, opts.fullName, opts.email,
+  await pool.query(`INSERT INTO profiles (id, full_name, email, avatar_url) VALUES ($1, $2, $3, $4)`, [
+    user.id,
+    googleUser.fullName,
+    email,
+    googleUser.picture ?? null,
   ]);
-  await pool.query(`INSERT INTO user_roles (user_id, role) VALUES ($1, $2::app_role)`, [user.id, role]);
+  await pool.query(`INSERT INTO user_roles (user_id, role) VALUES ($1, 'owner'::app_role)`, [user.id]);
+  await pool.query(`INSERT INTO owners (user_id, name, email) VALUES ($1, $2, $3)`, [
+    user.id,
+    googleUser.fullName,
+    email,
+  ]);
 
-  if (!isAdmin) {
-    await pool.query(`INSERT INTO owners (user_id, name, email) VALUES ($1, $2, $3)`, [
-      user.id, opts.fullName, opts.email,
-    ]);
-  }
-
-  return { id: user.id, email: user.email, fullName: user.full_name, role: role as "admin" | "owner" };
+  return { user: await getUserSession(user.id) };
 }
 
-export async function loginUser(email: string, password: string) {
+async function getUserSession(userId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT u.id, u.email, u.full_name,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM user_roles WHERE user_id = u.id AND role = 'admin'
+            ) THEN 'admin' ELSE 'owner' END AS role
+     FROM users u
+     WHERE u.id = $1`,
+    [userId]
+  );
+  if (!rows.length) return null;
+  const u = rows[0] as { id: string; email: string; full_name: string; role: string };
+  return {
+    id: u.id,
+    email: u.email,
+    fullName: u.full_name,
+    role: u.role as "admin" | "owner",
+  };
+}
+
+export async function ensureUserProfile(userId: string, email: string, fullName: string | null) {
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO profiles (id, full_name, email)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO UPDATE SET
+       full_name = COALESCE(EXCLUDED.full_name, profiles.full_name),
+       email = COALESCE(EXCLUDED.email, profiles.email)`,
+    [userId, fullName, email]
+  );
+}
+
+async function fetchUserRow(userId: string) {
+  const pool = getPool();
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, email, full_name, google_id, email_verified, created_at FROM users WHERE id = $1`,
+      [userId]
+    );
+    return (rows[0] as Record<string, unknown>) ?? null;
+  } catch {
+    const { rows } = await pool.query(
+      `SELECT id, email, full_name, created_at FROM users WHERE id = $1`,
+      [userId]
+    );
+    if (!rows.length) return null;
+    return { ...rows[0], google_id: null, email_verified: true };
+  }
+}
+
+export async function getUserProfile(userId: string) {
+  const u = await fetchUserRow(userId);
+  if (!u) return null;
+
+  const email = String(u.email ?? "");
+  const fullName = u.full_name ? String(u.full_name) : null;
+  await ensureUserProfile(userId, email, fullName);
+
+  const pool = getPool();
+  const { rows: roleRows } = await pool.query(
+    `SELECT role::text AS role FROM user_roles WHERE user_id = $1`,
+    [userId]
+  );
+  const role = roleRows.some((r: { role: string }) => r.role === "admin") ? "admin" : "owner";
+
+  let owner: { contact?: string; address?: string; name?: string } | null = null;
+  if (role === "owner") {
+    const { rows: ownerRows } = await pool.query(
+      `SELECT name, contact, address, email FROM owners WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1`,
+      [userId]
+    );
+    owner = (ownerRows[0] as typeof owner) ?? null;
+
+    if (!owner) {
+      await pool.query(
+        `INSERT INTO owners (user_id, name, email) VALUES ($1, $2, $3)`,
+        [userId, fullName ?? email.split("@")[0], email]
+      );
+      const { rows: created } = await pool.query(
+        `SELECT name, contact, address, email FROM owners WHERE user_id = $1 LIMIT 1`,
+        [userId]
+      );
+      owner = (created[0] as typeof owner) ?? null;
+    }
+  }
+
+  let avatarUrl: string | null = null;
+  try {
+    const { rows: profileRows } = await pool.query(`SELECT avatar_url FROM profiles WHERE id = $1`, [userId]);
+    avatarUrl = (profileRows[0]?.avatar_url as string | null) ?? null;
+  } catch {
+    avatarUrl = null;
+  }
+
+  return {
+    id: String(u.id),
+    email,
+    fullName,
+    role: role as "admin" | "owner",
+    authMethod: u.google_id ? ("google" as const) : ("password" as const),
+    createdAt: String(u.created_at ?? new Date().toISOString()),
+    contact: owner?.contact ?? null,
+    address: owner?.address ?? null,
+    ownerName: owner?.name ?? null,
+    avatarUrl,
+    emailVerified: Boolean(u.email_verified ?? true),
+  };
+}
+
+export async function updateUserProfile(
+  userId: string,
+  opts: {
+    fullName?: string;
+    contact?: string;
+    address?: string;
+    avatarUrl?: string | null;
+    currentPassword?: string;
+    newPassword?: string;
+  }
+) {
+  const pool = getPool();
+  const { verifyPassword, hashPassword } = await import("./auth");
+
+  if (opts.newPassword) {
+    if (opts.newPassword.length < 6) throw new Error("Password must be at least 6 characters.");
+    const { rows } = await pool.query(`SELECT password_hash FROM users WHERE id = $1`, [userId]);
+    const hash = rows[0]?.password_hash as string | null;
+    if (!hash) throw new Error("Google accounts cannot set a password here. Use Google sign-in.");
+    if (!opts.currentPassword || !(await verifyPassword(opts.currentPassword, hash))) {
+      throw new Error("Current password is incorrect.");
+    }
+    const newHash = await hashPassword(opts.newPassword);
+    await pool.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [newHash, userId]);
+  }
+
+  if (opts.fullName?.trim()) {
+    await pool.query(`UPDATE users SET full_name = $1 WHERE id = $2`, [opts.fullName.trim(), userId]);
+    await pool.query(`UPDATE profiles SET full_name = $1 WHERE id = $2`, [opts.fullName.trim(), userId]);
+    const { rows: roles } = await pool.query(
+      `SELECT role FROM user_roles WHERE user_id = $1 AND role = 'owner'`,
+      [userId]
+    );
+    if (roles.length) {
+      await pool.query(`UPDATE owners SET name = $1 WHERE user_id = $2`, [opts.fullName.trim(), userId]);
+    }
+  }
+
+  const { rows: roleCheck } = await pool.query(
+    `SELECT role FROM user_roles WHERE user_id = $1 AND role = 'owner'`,
+    [userId]
+  );
+  if (roleCheck.length) {
+    if (opts.contact !== undefined) {
+      await pool.query(`UPDATE owners SET contact = $1 WHERE user_id = $2`, [opts.contact || null, userId]);
+    }
+    if (opts.address !== undefined) {
+      await pool.query(`UPDATE owners SET address = $1 WHERE user_id = $2`, [opts.address || null, userId]);
+    }
+  }
+
+  if (opts.avatarUrl !== undefined) {
+    const { rows: userRows } = await pool.query(`SELECT email, full_name FROM users WHERE id = $1`, [userId]);
+    if (userRows.length) {
+      const u = userRows[0] as { email: string; full_name: string | null };
+      await ensureUserProfile(userId, u.email, u.full_name);
+    }
+    await pool.query(`UPDATE profiles SET avatar_url = $1 WHERE id = $2`, [opts.avatarUrl || null, userId]);
+  }
+
+  return getUserProfile(userId);
+}
+
+export type LoginUserResult =
+  | { id: string; email: string; fullName: string; role: "admin" | "owner" }
+  | { error: "EMAIL_NOT_VERIFIED"; email: string }
+  | { error: "GOOGLE_ONLY"; email: string };
+
+export async function loginUser(email: string, password: string): Promise<LoginUserResult | null> {
   const pool = getPool();
   const { verifyPassword } = await import("./auth");
+  const normalized = email.toLowerCase().trim();
 
-  const { rows } = await pool.query(
-    `SELECT u.id, u.email, u.full_name, u.password_hash, ur.role
-     FROM users u
-     LEFT JOIN user_roles ur ON ur.user_id = u.id
-     WHERE u.email = $1
-     ORDER BY ur.role ASC`,
-    [email]
-  );
+  let rows: Record<string, unknown>[];
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.email, u.full_name, u.password_hash, u.google_id,
+              u.email_verified, u.must_verify_gmail, ur.role
+       FROM users u
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       WHERE LOWER(u.email) = $1
+       ORDER BY ur.role ASC`,
+      [normalized]
+    );
+    rows = result.rows as Record<string, unknown>[];
+  } catch {
+    const result = await pool.query(
+      `SELECT u.id, u.email, u.full_name, u.password_hash, u.google_id, ur.role
+       FROM users u
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       WHERE LOWER(u.email) = $1
+       ORDER BY ur.role ASC`,
+      [normalized]
+    );
+    rows = result.rows as Record<string, unknown>[];
+  }
 
   if (!rows.length) return null;
   const user = rows[0] as {
@@ -376,13 +875,32 @@ export async function loginUser(email: string, password: string) {
     email: string;
     full_name: string;
     password_hash: string | null;
+    google_id?: string | null;
+    email_verified?: boolean;
+    must_verify_gmail?: boolean;
     role: "admin" | "owner" | null;
   };
 
-  const valid = user.password_hash ? await verifyPassword(password, user.password_hash) : false;
+  if (!user.password_hash) {
+    if (user.google_id) {
+      return { error: "GOOGLE_ONLY", email: user.email };
+    }
+    return null;
+  }
+
+  const valid = await verifyPassword(password, user.password_hash);
   if (!valid) return null;
 
-  const role = rows.some((r: { role: string }) => r.role === "admin") ? "admin" : (user.role ?? "owner");
+  const role = rows.some((r) => r.role === "admin") ? "admin" : (user.role ?? "owner");
+
+  const needsVerification =
+    role === "owner" &&
+    user.must_verify_gmail === true &&
+    user.email_verified !== true;
+
+  if (needsVerification) {
+    return { error: "EMAIL_NOT_VERIFIED", email: user.email };
+  }
 
   return {
     id: user.id,

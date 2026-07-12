@@ -54,7 +54,7 @@ class UpdateBuilder {
     return this;
   }
 
-  async execute(): Promise<{ data: null; error: { message: string } | null }> {
+  async execute(): Promise<{ data: null; error: { message: string } | null; meta?: Record<string, unknown> }> {
     const res = await fetch("/api/data", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,11 +68,11 @@ class UpdateBuilder {
     });
     const json = await res.json();
     if (!res.ok) return { data: null, error: { message: json.error ?? "Request failed" } };
-    return { data: null, error: null };
+    return { data: null, error: null, meta: json.meta };
   }
 
-  then<TResult1 = { data: null; error: { message: string } | null }, TResult2 = never>(
-    onfulfilled?: ((value: { data: null; error: { message: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
+  then<TResult1 = { data: null; error: { message: string } | null; meta?: Record<string, unknown> }, TResult2 = never>(
+    onfulfilled?: ((value: { data: null; error: { message: string } | null; meta?: Record<string, unknown> }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ) {
     return this.execute().then(onfulfilled, onrejected);
@@ -163,7 +163,12 @@ export const authClient = {
       body: JSON.stringify({ email, password }),
     });
     const json = await res.json();
-    if (!res.ok) return { data: { user: null }, error: { message: json.error ?? "Login failed" } };
+    if (!res.ok) {
+      return {
+        data: { user: null },
+        error: { message: json.error ?? "Login failed", code: json.code as string | undefined },
+      };
+    }
     return { data: { user: json.user }, error: null };
   },
 
@@ -186,7 +191,11 @@ export const authClient = {
     const json = await res.json();
     if (!res.ok) return { data: { user: null, session: null }, error: { message: json.error ?? "Signup failed" } };
     return {
-      data: { user: json.user, session: json.session ? { user: json.user } : null },
+      data: {
+        user: json.user,
+        session: json.session ? { user: json.user } : null,
+        needsVerification: Boolean(json.needsVerification),
+      },
       error: null,
     };
   },

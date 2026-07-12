@@ -39,13 +39,13 @@ export async function POST(request: Request) {
     }
 
     if (action === "update") {
-      await queryUpdate({
+      const meta = await queryUpdate({
         user,
         table,
         data: body.data,
         filters: body.filters ?? [],
       });
-      return NextResponse.json({ data: null });
+      return NextResponse.json({ data: null, meta });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
